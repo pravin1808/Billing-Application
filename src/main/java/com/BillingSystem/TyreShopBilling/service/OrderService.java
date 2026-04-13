@@ -21,6 +21,7 @@ import java.util.List;
 public class OrderService {
 
     private OrderRepo orderRepo;
+    private InvoiceNumberService invoiceNumberService;
 
     public List<OrdersResponse> getAllOrders() {
         List<Orders> allOrders =  orderRepo.findAll();
@@ -33,6 +34,7 @@ public class OrderService {
                     order.getCustomerName(),
                     order.getCustomerMobileNumber(),
                     order.getGstInNumber(),
+                    order.getInvoiceNumber(),
                     order.getOrderDate(),
                     order.getTotalAmount(),
                     orderedProductResponses
@@ -57,6 +59,7 @@ public class OrderService {
                 order.getCustomerName(),
                 order.getCustomerMobileNumber(),
                 order.getGstInNumber(),
+                order.getInvoiceNumber(),
                 order.getOrderDate(),
                 order.getTotalAmount(),
                 orderedProductResponses
@@ -70,6 +73,10 @@ public class OrderService {
         newOrder.setCustomerMobileNumber(newOrderReq.customerMobileNumber());
         newOrder.setGstInNumber(newOrderReq.gstInNumber());
         newOrder.setOrderDate(LocalDateTime.now());
+
+        invoiceNumberService.isEmpty();
+
+        newOrder.setInvoiceNumber(invoiceNumberService.getCurrentInvoiceNumber());
 
         float totalAmount = 0f;
         List<OrderedProducts> orderedProducts = new ArrayList<>();
@@ -92,6 +99,7 @@ public class OrderService {
                 addedOrder.getCustomerName(),
                 addedOrder.getCustomerMobileNumber(),
                 addedOrder.getGstInNumber(),
+                addedOrder.getInvoiceNumber(),
                 addedOrder.getOrderDate(),
                 addedOrder.getTotalAmount(),
                 orderedProductResponses
@@ -167,6 +175,7 @@ public class OrderService {
                 updatedOrder1.getCustomerName(),
                 updatedOrder1.getCustomerMobileNumber(),
                 updatedOrder1.getGstInNumber(),
+                updatedOrder1.getInvoiceNumber(),
                 updatedOrder1.getOrderDate(),
                 updatedOrder1.getTotalAmount(),
                 orderedProductResponses
@@ -189,6 +198,11 @@ public class OrderService {
     @Autowired
     public void setOrderRepo(OrderRepo newOrderRepo){
         this.orderRepo = newOrderRepo;
+    }
+
+    @Autowired
+    public void setInvoiceNumberService(InvoiceNumberService invoiceNumberService){
+        this.invoiceNumberService = invoiceNumberService;
     }
 
 }
