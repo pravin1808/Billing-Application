@@ -42,11 +42,11 @@ import java.util.List;
 @Component
 public class InvoiceGenerator {
 
-    public void invoiceGenerator(String customerName, long customerMobileNumber, String gstInNumber, int invoiceNumber, LocalDateTime dateTime, float totalAmount, String paymentMethod, List<OrderedProductResponse> orderedProducts) throws IOException {
+    public void invoiceGenerator(String customerName, long customerMobileNumber, String gstInNumber, int invoiceNumber, LocalDateTime dateTime, float totalAmount, String paymentMethod, String orgFolder, List<OrderedProductResponse> orderedProducts) throws IOException {
 
         PdfFont boldFont = PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD);
 
-        File folder = new File("D:/Invoices");
+        File folder = new File(orgFolder);
         if (!folder.exists()) {
             boolean created = folder.mkdirs();
         }
@@ -81,7 +81,7 @@ public class InvoiceGenerator {
 
                 try {
                     // Path to your watermark image (transparent PNG recommended)
-                    ImageData bgImage = ImageDataFactory.create("D:/Invoices/watermark.png");
+                    ImageData bgImage = ImageDataFactory.create(folder+"/watermark.png");
 
                     Rectangle pageSize = pdf.getDefaultPageSize();
                     float width = pageSize.getWidth() / 1.5f;   // adjust scale

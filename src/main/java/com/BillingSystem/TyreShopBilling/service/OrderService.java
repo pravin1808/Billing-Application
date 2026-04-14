@@ -24,6 +24,7 @@ public class OrderService {
 
     private OrderRepo orderRepo;
     private InvoiceNumberService invoiceNumberService;
+    private InvoicePathService invoicePathService;
     private InvoiceGenerator invoiceGenerator;
 
     public List<OrdersResponse> getAllOrders() {
@@ -80,6 +81,9 @@ public class OrderService {
 
         invoiceNumberService.isEmpty();
 
+        String folder = invoicePathService.isEmpty();
+        System.out.println(folder);
+
         newOrder.setInvoiceNumber(invoiceNumberService.getCurrentInvoiceNumber());
 
         float totalAmount = 0f;
@@ -112,7 +116,7 @@ public class OrderService {
 
         );
 
-        invoiceGenerator.invoiceGenerator(addedOrder.getCustomerName(), addedOrder.getCustomerMobileNumber(), addedOrder.getGstInNumber(), addedOrder.getInvoiceNumber(), addedOrder.getOrderDate(), addedOrder.getTotalAmount(), addedOrder.getPaymentMethod(),orderedProductResponses);
+        invoiceGenerator.invoiceGenerator(addedOrder.getCustomerName(), addedOrder.getCustomerMobileNumber(), addedOrder.getGstInNumber(), addedOrder.getInvoiceNumber(), addedOrder.getOrderDate(), addedOrder.getTotalAmount(), addedOrder.getPaymentMethod(), folder, orderedProductResponses);
 
         return ordersResponse;
     }
@@ -214,6 +218,11 @@ public class OrderService {
     @Autowired
     public void setInvoiceNumberService(InvoiceNumberService invoiceNumberService){
         this.invoiceNumberService = invoiceNumberService;
+    }
+
+    @Autowired
+    public void setInvoicePathService(InvoicePathService invoicePathService){
+        this.invoicePathService=invoicePathService;
     }
 
     @Autowired
