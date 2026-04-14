@@ -13,6 +13,7 @@ public class OrderedProducts {
     private long id;
     private String description;
     private String size;
+    private int hsnNumber;
     private int gst;
     private float price;
     private float gstPrice;

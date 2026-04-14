@@ -1,5 +1,6 @@
 package com.BillingSystem.TyreShopBilling.service;
 
+import com.BillingSystem.TyreShopBilling.InvoiceGenerator;
 import com.BillingSystem.TyreShopBilling.model.OrderedProducts;
 import com.BillingSystem.TyreShopBilling.model.Orders;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductRequest;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +24,7 @@ public class OrderService {
 
     private OrderRepo orderRepo;
     private InvoiceNumberService invoiceNumberService;
+    private InvoiceGenerator invoiceGenerator;
 
     public List<OrdersResponse> getAllOrders() {
         List<Orders> allOrders =  orderRepo.findAll();
@@ -37,6 +40,7 @@ public class OrderService {
                     order.getInvoiceNumber(),
                     order.getOrderDate(),
                     order.getTotalAmount(),
+                    order.getPaymentMethod(),
                     orderedProductResponses
             );
             ordersResponses.add(ordersResponse);
@@ -51,7 +55,6 @@ public class OrderService {
             System.out.println(1);
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        System.out.println(2);
 
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
 
@@ -62,12 +65,13 @@ public class OrderService {
                 order.getInvoiceNumber(),
                 order.getOrderDate(),
                 order.getTotalAmount(),
+                order.getPaymentMethod(),
                 orderedProductResponses
         );
         return new ResponseEntity<>(ordersResponse, HttpStatus.FOUND);
     }
 
-    public OrdersResponse addNewOrder(OrdersRequest newOrderReq) {
+    public OrdersResponse addNewOrder(OrdersRequest newOrderReq) throws IOException {
         Orders newOrder = new Orders();
         newOrder.setCustomerName(newOrderReq.customerName());
         newOrder.setCustomerMobileNumber(newOrderReq.customerMobileNumber());
@@ -89,6 +93,7 @@ public class OrderService {
             orderedProducts.add(orderedProduct);
         }
         newOrder.setTotalAmount(totalAmount);
+        newOrder.setPaymentMethod(newOrderReq.paymentMethod());
         newOrder.setOrderedProducts(orderedProducts);
 
         Orders addedOrder = orderRepo.save(newOrder);
@@ -102,9 +107,12 @@ public class OrderService {
                 addedOrder.getInvoiceNumber(),
                 addedOrder.getOrderDate(),
                 addedOrder.getTotalAmount(),
+                addedOrder.getPaymentMethod(),
                 orderedProductResponses
 
         );
+
+        invoiceGenerator.invoiceGenerator(addedOrder.getCustomerName(), addedOrder.getCustomerMobileNumber(), addedOrder.getGstInNumber(), addedOrder.getInvoiceNumber(), addedOrder.getOrderDate(), addedOrder.getTotalAmount(), addedOrder.getPaymentMethod(),orderedProductResponses);
 
         return ordersResponse;
     }
@@ -117,6 +125,7 @@ public class OrderService {
                     product.getDescription(),
                     product.getSize(),
                     product.getGst(),
+                    product.getHsnNumber(),
                     product.getPrice(),
                     product.getGstPrice(),
                     product.getQuantitySell(),
@@ -133,6 +142,7 @@ public class OrderService {
 
         orderedProduct.setDescription(item.description());
         orderedProduct.setSize(item.size());
+        orderedProduct.setHsnNumber(item.hsnNumber());
         orderedProduct.setGst(item.gst());
         orderedProduct.setGstPrice(item.gstPrice());
         orderedProduct.setPrice((100.0f * orderedProduct.getGstPrice())/(100.0f + orderedProduct.getGst()));
@@ -178,6 +188,7 @@ public class OrderService {
                 updatedOrder1.getInvoiceNumber(),
                 updatedOrder1.getOrderDate(),
                 updatedOrder1.getTotalAmount(),
+                updatedOrder1.getPaymentMethod(),
                 orderedProductResponses
 
         );
@@ -203,6 +214,11 @@ public class OrderService {
     @Autowired
     public void setInvoiceNumberService(InvoiceNumberService invoiceNumberService){
         this.invoiceNumberService = invoiceNumberService;
+    }
+
+    @Autowired
+    public void setInvoiceGenerator(InvoiceGenerator invoiceGenerator){
+        this.invoiceGenerator = invoiceGenerator;
     }
 
 }

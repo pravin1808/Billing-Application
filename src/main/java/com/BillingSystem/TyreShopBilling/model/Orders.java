@@ -23,6 +23,7 @@ public class Orders {
     private String gstInNumber;
     private LocalDateTime orderDate;
     private float totalAmount;
+    private String paymentMethod;
 
     @OneToMany(mappedBy = "orders", cascade = CascadeType.ALL)
     private List<OrderedProducts> orderedProducts;

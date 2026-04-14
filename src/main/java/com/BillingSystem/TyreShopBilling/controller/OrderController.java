@@ -1,6 +1,5 @@
 package com.BillingSystem.TyreShopBilling.controller;
 
-import com.BillingSystem.TyreShopBilling.model.Orders;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
 import com.BillingSystem.TyreShopBilling.service.OrderService;

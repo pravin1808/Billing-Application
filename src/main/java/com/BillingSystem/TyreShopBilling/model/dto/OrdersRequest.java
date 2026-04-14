@@ -9,6 +9,7 @@ public record OrdersRequest(
         String customerName,
         long customerMobileNumber,
         String gstInNumber,
+        String paymentMethod,
         List<OrderedProductRequest> orderedProducts
 ) {
 }

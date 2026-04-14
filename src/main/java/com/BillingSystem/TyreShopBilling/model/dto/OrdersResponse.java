@@ -13,6 +13,7 @@ public record OrdersResponse(
         @JsonFormat(pattern = "dd-MM-yyyy hh:mm a")
         LocalDateTime orderDate,
         float totalAmount,
+        String paymentMethod,
         List<OrderedProductResponse> orderedProducts
 ) {
 }
