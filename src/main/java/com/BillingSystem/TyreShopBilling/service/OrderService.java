@@ -10,6 +10,7 @@ import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
 import com.BillingSystem.TyreShopBilling.repository.OrderRepo;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,7 @@ public class OrderService {
     private InvoiceGenerator invoiceGenerator;
 
     public List<OrdersResponse> getAllOrders() {
-        List<Orders> allOrders =  orderRepo.findAll();
+        List<Orders> allOrders =  orderRepo.findAll(Sort.by(Sort.Direction.ASC,"orderId"));
 
         List<OrdersResponse> ordersResponses = new ArrayList<>();
 
@@ -82,7 +83,6 @@ public class OrderService {
         invoiceNumberService.isEmpty();
 
         String folder = invoicePathService.isEmpty();
-        System.out.println(folder);
 
         newOrder.setInvoiceNumber(invoiceNumberService.getCurrentInvoiceNumber());
 
@@ -116,7 +116,7 @@ public class OrderService {
 
         );
 
-        invoiceGenerator.invoiceGenerator(addedOrder.getCustomerName(), addedOrder.getCustomerMobileNumber(), addedOrder.getGstInNumber(), addedOrder.getInvoiceNumber(), addedOrder.getOrderDate(), addedOrder.getTotalAmount(), addedOrder.getPaymentMethod(), folder, orderedProductResponses);
+        invoiceGenerator.invoiceGenerator(ordersResponse, folder);
 
         return ordersResponse;
     }

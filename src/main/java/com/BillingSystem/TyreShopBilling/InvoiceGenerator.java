@@ -1,6 +1,7 @@
 package com.BillingSystem.TyreShopBilling;
 
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductResponse;
+import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
 import com.itextpdf.io.font.FontConstants;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
@@ -27,23 +28,18 @@ import com.itextpdf.layout.property.UnitValue;
 import com.itextpdf.layout.property.VerticalAlignment;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.printing.PDFPageable;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.awt.print.PrinterJob;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.List;
+import java.io.*;
 
 @Component
 public class InvoiceGenerator {
 
-    public void invoiceGenerator(String customerName, long customerMobileNumber, String gstInNumber, int invoiceNumber, LocalDateTime dateTime, float totalAmount, String paymentMethod, String orgFolder, List<OrderedProductResponse> orderedProducts) throws IOException {
-
+    public void invoiceGenerator(OrdersResponse ordersResponse, String orgFolder)throws IOException {
         PdfFont boldFont = PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD);
 
         File folder = new File(orgFolder);
@@ -51,7 +47,7 @@ public class InvoiceGenerator {
             boolean created = folder.mkdirs();
         }
 
-        File file = new File(folder+"/"+customerName+" "+invoiceNumber+" "+" invoice.pdf");
+        File file = new File(folder+"/"+ordersResponse.customerName()+" "+ordersResponse.invoiceNumber()+" "+" invoice.pdf");
         boolean isCreated = file.createNewFile();
 
         BufferedImage image = ImageIO.read(new File("src/main/resources/static/watermark.png"));
@@ -68,42 +64,7 @@ public class InvoiceGenerator {
             e.printStackTrace();
         }
 
-        PdfWriter writer = new PdfWriter(file);
-        PdfDocument pdf = new PdfDocument(writer);
-
-        // --- Add watermark on every page ---
-        pdf.addEventHandler(PdfDocumentEvent.START_PAGE, new IEventHandler() {
-            @Override
-            public void handleEvent(Event event) {
-                PdfDocumentEvent docEvent = (PdfDocumentEvent) event;
-                PdfPage page = docEvent.getPage();
-                PdfCanvas canvas = new PdfCanvas(page.newContentStreamBefore(), page.getResources(), pdf);
-
-                try {
-                    // Path to your watermark image (transparent PNG recommended)
-                    ImageData bgImage = ImageDataFactory.create(folder+"/watermark.png");
-
-                    Rectangle pageSize = pdf.getDefaultPageSize();
-                    float width = pageSize.getWidth() / 1.5f;   // adjust scale
-                    float height = pageSize.getHeight() / 1.5f;
-
-                    float x = (pageSize.getWidth() - width) / 2;
-                    float y = (pageSize.getHeight() - height) / 2;
-
-                    canvas.saveState();
-                    PdfExtGState gs = new PdfExtGState();
-                    gs.setFillOpacity(0.35f); // make it light (0.05–0.15 ideal)
-                    canvas.setExtGState(gs);
-
-                    canvas.addImage(bgImage, width, 0, 0, height, x, y, false);
-                    canvas.restoreState();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-        });
-
-        pdf.setDefaultPageSize(PageSize.A5);
+        PdfDocument pdf = getPdfDocument(file, folder);
 
         Document document = new Document(pdf,PageSize.A5);
         document.setFont(boldFont);
@@ -173,10 +134,10 @@ public class InvoiceGenerator {
         invTable.setWidth(UnitValue.createPercentValue(100));
         invTable.setMarginTop(0);
 
-        invTable.addCell(new Cell().add(new Paragraph("Invoice No. "+invoiceNumber).setFontSize(8))
+        invTable.addCell(new Cell().add(new Paragraph("Invoice No. "+ordersResponse.invoiceNumber()).setFontSize(8))
                 .setTextAlignment(TextAlignment.LEFT));
 
-        invTable.addCell(new Cell().add(new Paragraph("Date : "+dateTime).setFontSize(8))
+        invTable.addCell(new Cell().add(new Paragraph("Date : "+ordersResponse.orderDate()).setFontSize(8))
                 .setTextAlignment(TextAlignment.RIGHT));
 
         invTable.setBorder(Border.NO_BORDER);
@@ -198,17 +159,17 @@ public class InvoiceGenerator {
         buyerTable.setMarginTop(0);
         buyerTable.setMarginBottom(10f);
 
-        buyerTable.addCell(new Cell().add(new Paragraph("Name : "+customerName).setFontSize(8))
+        buyerTable.addCell(new Cell().add(new Paragraph("Name : "+ordersResponse.customerName()).setFontSize(8))
                 .setTextAlignment(TextAlignment.LEFT));
 
-        buyerTable.addCell(new Cell().add(new Paragraph("Mobile : "+customerMobileNumber).setFontSize(8))
+        buyerTable.addCell(new Cell().add(new Paragraph("Mobile : "+ordersResponse.customerMobileNumber()).setFontSize(8))
                 .setTextAlignment(TextAlignment.RIGHT));
 
-        buyerTable.addCell(new Cell().add(new Paragraph("Payment Method : "+paymentMethod).setFontSize(8))
+        buyerTable.addCell(new Cell().add(new Paragraph("Payment Method : "+ordersResponse.paymentMethod()).setFontSize(8))
                 .setTextAlignment(TextAlignment.LEFT));
 
-        if(gstInNumber!=null) {
-            buyerTable.addCell(new Cell().add(new Paragraph("GSTIN : " + gstInNumber).setFontSize(8))
+        if(ordersResponse.gstInNumber()!=null) {
+            buyerTable.addCell(new Cell().add(new Paragraph("GSTIN : " + ordersResponse.gstInNumber()).setFontSize(8))
                     .setTextAlignment(TextAlignment.RIGHT));
         }
 
@@ -251,8 +212,8 @@ public class InvoiceGenerator {
 
 // Product rows
         int srNo = 1;
-        int totalProducts = orderedProducts.size();
-        for (OrderedProductResponse p : orderedProducts) {
+        int totalProducts = ordersResponse.orderedProducts().size();
+        for (OrderedProductResponse p : ordersResponse.orderedProducts()) {
             String hsnValue = (p.hsnNumber() == 0) ? "-" : String.valueOf(p.hsnNumber());
             // Each cell must be created individually to set borders
             String[] values = {
@@ -321,11 +282,11 @@ public class InvoiceGenerator {
         }
 
         float totalBaseAmount = 0;
-        for (OrderedProductResponse p : orderedProducts) {
+        for (OrderedProductResponse p : ordersResponse.orderedProducts()) {
             totalBaseAmount += p.price() * p.quantitySell();
         }
 
-        float totalTax = totalAmount - totalBaseAmount;
+        float totalTax = ordersResponse.totalAmount() - totalBaseAmount;
         float cgst = totalTax / 2;
         float sgst = totalTax / 2;
 
@@ -334,7 +295,7 @@ public class InvoiceGenerator {
         double cgst14Total = 0.0;
         double sgst14Total = 0.0;
 
-        for (OrderedProductResponse p : orderedProducts) {
+        for (OrderedProductResponse p : ordersResponse.orderedProducts()) {
             double gstRate = p.gst();  // 18 or 28
             double taxableAmount = p.gstPrice() * p.quantitySell();
             double gstFraction = gstRate / 100.0;
@@ -438,7 +399,7 @@ public class InvoiceGenerator {
 
 // Amount value in last column
         Cell totalAmountCell = new Cell()
-                .add(String.format("%.2f", totalAmount))
+                .add(String.format("%.2f", ordersResponse.totalAmount()))
                 .setTextAlignment(TextAlignment.RIGHT)
                 .setFontSize(8f)
                 .setBorderTop(new SolidBorder(1))
@@ -504,6 +465,46 @@ public class InvoiceGenerator {
 
         printInvoice(String.valueOf(file));
 
+    }
+
+    private static @NonNull PdfDocument getPdfDocument(File file, File folder) throws FileNotFoundException {
+        PdfWriter writer = new PdfWriter(file);
+        PdfDocument pdf = new PdfDocument(writer);
+
+        // --- Add watermark on every page ---
+        pdf.addEventHandler(PdfDocumentEvent.START_PAGE, new IEventHandler() {
+            @Override
+            public void handleEvent(Event event) {
+                PdfDocumentEvent docEvent = (PdfDocumentEvent) event;
+                PdfPage page = docEvent.getPage();
+                PdfCanvas canvas = new PdfCanvas(page.newContentStreamBefore(), page.getResources(), pdf);
+
+                try {
+                    // Path to your watermark image (transparent PNG recommended)
+                    ImageData bgImage = ImageDataFactory.create(folder +"/watermark.png");
+
+                    Rectangle pageSize = pdf.getDefaultPageSize();
+                    float width = pageSize.getWidth() / 1.5f;   // adjust scale
+                    float height = pageSize.getHeight() / 1.5f;
+
+                    float x = (pageSize.getWidth() - width) / 2;
+                    float y = (pageSize.getHeight() - height) / 2;
+
+                    canvas.saveState();
+                    PdfExtGState gs = new PdfExtGState();
+                    gs.setFillOpacity(0.35f); // make it light (0.05–0.15 ideal)
+                    canvas.setExtGState(gs);
+
+                    canvas.addImage(bgImage, width, 0, 0, height, x, y, false);
+                    canvas.restoreState();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+
+        pdf.setDefaultPageSize(PageSize.A5);
+        return pdf;
     }
 
     public static void printInvoice(String pdfPath) {

@@ -1,6 +1,7 @@
 package com.BillingSystem.TyreShopBilling.controller;
 
-import com.BillingSystem.TyreShopBilling.model.Product;
+import com.BillingSystem.TyreShopBilling.model.dto.ProductRequest;
+import com.BillingSystem.TyreShopBilling.model.dto.ProductResponse;
 import com.BillingSystem.TyreShopBilling.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -16,24 +17,20 @@ public class ProductController {
     private ProductService productService;
 
     @GetMapping("/products")
-    public ResponseEntity<List<Product>> getAllProducts(){
+    public ResponseEntity<List<ProductResponse>> getAllProducts(){
         return new ResponseEntity<>(productService.getAllProducts(), HttpStatus.OK);
     }
     @GetMapping("/product/{productId}")
-    public ResponseEntity<Product> getProductById(@PathVariable int productId) {
-        Product newProduct = productService.getProductById(productId);
-        if(newProduct.getProduct_id()>0){
-            return new ResponseEntity<>(newProduct, HttpStatus.CREATED);
-        }else{
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        }
+    public ResponseEntity<?> getProductById(@PathVariable int productId) {
+        return productService.getProductById(productId);
     }
 
     @PostMapping("/products")
-    public ResponseEntity<?> addProduct(@RequestBody Product product){
+    public ResponseEntity<?> addProduct(@RequestBody ProductRequest productReq){
 
-        Product savedProduct = productService.addorUpdateProduct(product);
+        ProductResponse savedProduct = null;
         try{
+            savedProduct = productService.addProduct(productReq);
             return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
         }catch(Exception e){
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
@@ -41,10 +38,15 @@ public class ProductController {
     }
 
     @PutMapping("/product/{productId}")
-    public ResponseEntity<Product> updateProduct(@PathVariable int productId,@RequestBody Product updatedProduct){
-        Product product = productService.updateProduct(productId, updatedProduct);
-        if(product.getProduct_id()>0){
-            return new ResponseEntity<>(product, HttpStatus.OK);
+    public ResponseEntity<?> updateProduct(@PathVariable int productId,@RequestBody ProductRequest updatedProduct){
+        return new ResponseEntity<>(productService.updateProduct(productId, updatedProduct), HttpStatus.ACCEPTED);
+    }
+
+    @DeleteMapping("/product/{productId}")
+    public ResponseEntity<?> deleteProductById(@PathVariable int productId){
+        boolean isDeleted = productService.deleteProductById(productId);
+        if(isDeleted){
+            return new ResponseEntity<>(HttpStatus.ACCEPTED);
         }else{
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
