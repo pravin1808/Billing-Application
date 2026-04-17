@@ -28,13 +28,18 @@ public class OrderController {
     }
 
     @PostMapping("/order")
-    public ResponseEntity<OrdersResponse> addOrder(@RequestBody OrdersRequest newOrderRequest){
+    public ResponseEntity<?> addOrder(@RequestBody OrdersRequest newOrderRequest){
         OrdersResponse addedOrder = null;
         try{
             addedOrder = orderService.addNewOrder(newOrderRequest);
             return new ResponseEntity<>(addedOrder, HttpStatus.CREATED);
         }catch (Exception e){
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            if (e.getMessage().contains("not found")) {
+                return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+            } else if (e.getMessage().contains("Insufficient")) {
+                return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+            }
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

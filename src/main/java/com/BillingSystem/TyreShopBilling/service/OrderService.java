@@ -3,6 +3,7 @@ package com.BillingSystem.TyreShopBilling.service;
 import com.BillingSystem.TyreShopBilling.InvoiceGenerator;
 import com.BillingSystem.TyreShopBilling.model.OrderedProducts;
 import com.BillingSystem.TyreShopBilling.model.Orders;
+import com.BillingSystem.TyreShopBilling.model.Product;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
@@ -27,6 +28,7 @@ public class OrderService {
     private InvoiceNumberService invoiceNumberService;
     private InvoicePathService invoicePathService;
     private InvoiceGenerator invoiceGenerator;
+    private ProductService productService;
 
     public List<OrdersResponse> getAllOrders() {
         List<Orders> allOrders =  orderRepo.findAll(Sort.by(Sort.Direction.ASC,"orderId"));
@@ -75,7 +77,7 @@ public class OrderService {
         return new ResponseEntity<>(ordersResponse, HttpStatus.FOUND);
     }
 
-    public OrdersResponse addNewOrder(OrdersRequest newOrderReq) throws IOException {
+    public OrdersResponse addNewOrder(OrdersRequest newOrderReq) throws Exception {
         Orders newOrder = new Orders();
         newOrder.setCustomerName(newOrderReq.customerName());
         newOrder.setCustomerMobileNumber(newOrderReq.customerMobileNumber());
@@ -101,6 +103,19 @@ public class OrderService {
         newOrder.setTotalAmount(totalAmount);
         newOrder.setPaymentMethod(newOrderReq.paymentMethod());
         newOrder.setOrderedProducts(orderedProducts);
+
+
+        for(OrderedProducts orderedProduct : orderedProducts){
+            productService.validateStock(orderedProduct.getDescription(),
+                    orderedProduct.getSize(),
+                    orderedProduct.getQuantitySell());
+        }
+
+        for(OrderedProducts orderedProduct1 : orderedProducts){
+            productService.updateStock(orderedProduct1.getDescription(),
+                    orderedProduct1.getSize(),
+                    orderedProduct1.getQuantitySell());
+        }
 
         Orders addedOrder = orderRepo.save(newOrder);
 
@@ -236,6 +251,11 @@ public class OrderService {
     @Autowired
     public void setInvoiceGenerator(InvoiceGenerator invoiceGenerator){
         this.invoiceGenerator = invoiceGenerator;
+    }
+
+    @Autowired
+    public void setProductService(ProductService productService){
+        this.productService = productService;
     }
 
 }
