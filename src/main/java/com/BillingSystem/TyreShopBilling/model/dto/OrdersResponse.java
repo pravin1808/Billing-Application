@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record OrdersResponse(
+        long orderId,
         String customerName,
         long customerMobileNumber,
         String gstInNumber,

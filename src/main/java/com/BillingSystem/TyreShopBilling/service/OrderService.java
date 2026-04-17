@@ -36,6 +36,7 @@ public class OrderService {
         for(Orders order : allOrders){
             List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
             OrdersResponse ordersResponse = new OrdersResponse(
+                    order.getOrderId(),
                     order.getCustomerName(),
                     order.getCustomerMobileNumber(),
                     order.getGstInNumber(),
@@ -61,6 +62,7 @@ public class OrderService {
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
 
         OrdersResponse ordersResponse = new OrdersResponse(
+                order.getOrderId(),
                 order.getCustomerName(),
                 order.getCustomerMobileNumber(),
                 order.getGstInNumber(),
@@ -105,6 +107,7 @@ public class OrderService {
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(newOrder);
 
         OrdersResponse ordersResponse = new OrdersResponse(
+                addedOrder.getOrderId(),
                 addedOrder.getCustomerName(),
                 addedOrder.getCustomerMobileNumber(),
                 addedOrder.getGstInNumber(),
@@ -126,6 +129,7 @@ public class OrderService {
 
         for(OrderedProducts product : newOrder.getOrderedProducts()){
             OrderedProductResponse orderedProductResponse = new OrderedProductResponse(
+                    product.getId(),
                     product.getDescription(),
                     product.getSize(),
                     product.getGst(),
@@ -157,7 +161,7 @@ public class OrderService {
         return orderedProduct;
     }
 
-    public ResponseEntity<OrdersResponse> updateOrder(long orderId, OrdersRequest updatedOrder){
+    public ResponseEntity<OrdersResponse> updateOrder(long orderId, OrdersRequest updatedOrder) throws IOException {
         Orders existingOrder = orderRepo.findById(orderId).orElse(new Orders(-1));
         if(existingOrder.getOrderId()<0){
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -167,6 +171,7 @@ public class OrderService {
         existingOrder.setCustomerMobileNumber(updatedOrder.customerMobileNumber());
         existingOrder.setGstInNumber(updatedOrder.gstInNumber());
         existingOrder.setOrderDate(LocalDateTime.now());
+        existingOrder.getOrderedProducts().clear();
 
         float totalAmount = 0f;
         List<OrderedProducts> orderedProducts = new ArrayList<>();
@@ -176,16 +181,16 @@ public class OrderService {
 
             totalAmount += orderedProduct.getAmount();
 
-            orderedProducts.add(orderedProduct);
+            existingOrder.getOrderedProducts().add(orderedProduct);
         }
         existingOrder.setTotalAmount(totalAmount);
-        existingOrder.setOrderedProducts(orderedProducts);
 
         Orders updatedOrder1 = orderRepo.save(existingOrder);
 
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(updatedOrder1);
 
         OrdersResponse ordersResponse = new OrdersResponse(
+                updatedOrder1.getOrderId(),
                 updatedOrder1.getCustomerName(),
                 updatedOrder1.getCustomerMobileNumber(),
                 updatedOrder1.getGstInNumber(),
@@ -196,6 +201,9 @@ public class OrderService {
                 orderedProductResponses
 
         );
+        String folder = invoicePathService.isEmpty();
+
+        invoiceGenerator.invoiceGenerator(ordersResponse, folder);
 
         return new ResponseEntity<>(ordersResponse, HttpStatus.OK);
     }

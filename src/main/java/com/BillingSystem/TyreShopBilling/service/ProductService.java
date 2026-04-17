@@ -23,6 +23,7 @@ public class ProductService {
 
         for(Product product : productList){
             ProductResponse productResponse = new ProductResponse(
+                    product.getProduct_id(),
                     product.getDescription(),
                     product.getSize(),
                     product.getGst(),
@@ -38,6 +39,7 @@ public class ProductService {
         Product product = productRepo.findById(productId).orElse(new Product(-1));
         if(product.getProduct_id()>0) {
             ProductResponse productResponse = new ProductResponse(
+                    product.getProduct_id(),
                     product.getDescription(),
                     product.getSize(),
                     product.getGst(),
@@ -60,6 +62,7 @@ public class ProductService {
         Product addedProduct = productRepo.save(product);
 
         ProductResponse productResponse = new ProductResponse(
+                product.getProduct_id(),
                 addedProduct.getDescription(),
                 addedProduct.getSize(),
                 addedProduct.getGst(),
@@ -81,6 +84,7 @@ public class ProductService {
         Product newProduct = productRepo.save(existingProduct);
 
         ProductResponse productResponse = new ProductResponse(
+                newProduct.getProduct_id(),
                 newProduct.getDescription(),
                 newProduct.getSize(),
                 newProduct.getGst(),
