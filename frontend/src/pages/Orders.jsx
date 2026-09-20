@@ -14,6 +14,8 @@ import {
   Package,
   User,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import InvoiceModal from '../components/InvoiceModal';
 
@@ -27,6 +29,12 @@ const emptyOrder = {
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
   const [inventory, setInventory] = useState([]);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(emptyOrder);
@@ -37,11 +45,24 @@ export default function Orders() {
   const [viewingInvoiceId, setViewingInvoiceId] = useState(null);
   const navigate = useNavigate();
 
-  const load = () => {
+  const load = (targetPage = page, targetSize = pageSize) => {
+    setLoadingOrders(true);
     api
-      .getOrders()
-      .then((d) => setOrders([...d].reverse()))
-      .catch(() => toast.error('Failed to load orders'));
+      .getOrdersPaged(targetPage, targetSize, 'orderId', 'desc')
+      .then((res) => {
+        if (res && res.content) {
+          setOrders(res.content);
+          setPage(res.pageNumber);
+          setTotalPages(res.totalPages || 1);
+          setTotalElements(res.totalElements || 0);
+        } else if (Array.isArray(res)) {
+          setOrders([...res].reverse());
+          setTotalElements(res.length);
+        }
+      })
+      .catch(() => toast.error('Failed to load orders'))
+      .finally(() => setLoadingOrders(false));
+
     api
       .getProducts()
       .then(setInventory)
@@ -49,8 +70,20 @@ export default function Orders() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    load(page, pageSize);
+  }, [page, pageSize]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setPage(newPage);
+    }
+  };
+
+  const handleSizeChange = (e) => {
+    const newSize = parseInt(e.target.value);
+    setPageSize(newSize);
+    setPage(0);
+  };
 
   const openNewOrderModal = () => {
     setForm(emptyOrder);
@@ -178,7 +211,11 @@ export default function Orders() {
       toast.success('Order placed & invoice generated!');
       setModal(false);
       setForm(emptyOrder);
-      load();
+      if (page !== 0) {
+        setPage(0);
+      } else {
+        load(0, pageSize);
+      }
       if (createdOrder?.orderId) {
         setViewingInvoiceId(createdOrder.orderId);
       }
@@ -207,7 +244,11 @@ export default function Orders() {
     try {
       await api.deleteOrder(id);
       toast.success('Order deleted');
-      load();
+      if (orders.length === 1 && page > 0) {
+        setPage(page - 1);
+      } else {
+        load(page, pageSize);
+      }
     } catch {
       toast.error('Delete failed');
     } finally {
@@ -309,6 +350,66 @@ export default function Orders() {
             </table>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {totalElements > 0 && (
+          <div className="pagination-wrap">
+            <div className="pagination-left">
+              <span>
+                Showing <strong>{totalElements === 0 ? 0 : page * pageSize + 1}</strong> to <strong>{Math.min((page + 1) * pageSize, totalElements)}</strong> of <strong>{totalElements}</strong> orders
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>Rows:</span>
+                <select className="pagination-size-select" value={pageSize} onChange={handleSizeChange}>
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="pagination-controls">
+              <button
+                className="pagination-btn"
+                disabled={page === 0 || loadingOrders}
+                onClick={() => handlePageChange(page - 1)}
+              >
+                <ChevronLeft size={14} /> Prev
+              </button>
+
+              {Array.from({ length: totalPages }, (_, idx) => {
+                if (
+                  idx === 0 ||
+                  idx === totalPages - 1 ||
+                  (idx >= page - 1 && idx <= page + 1)
+                ) {
+                  return (
+                    <button
+                      key={idx}
+                      className={`pagination-btn ${page === idx ? 'active' : ''}`}
+                      onClick={() => handlePageChange(idx)}
+                      disabled={loadingOrders}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                } else if (idx === page - 2 || idx === page + 2) {
+                  return <span key={idx} style={{ color: 'var(--muted)', padding: '0 2px' }}>…</span>;
+                }
+                return null;
+              })}
+
+              <button
+                className="pagination-btn"
+                disabled={page >= totalPages - 1 || loadingOrders}
+                onClick={() => handlePageChange(page + 1)}
+              >
+                Next <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {modal && (

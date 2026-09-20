@@ -5,6 +5,7 @@ import com.BillingSystem.TyreShopBilling.exception.InvoiceGenerationException;
 import com.BillingSystem.TyreShopBilling.exception.ResourceNotFoundException;
 import com.BillingSystem.TyreShopBilling.model.OrderedProducts;
 import com.BillingSystem.TyreShopBilling.model.Orders;
+import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
@@ -12,6 +13,9 @@ import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
 import com.BillingSystem.TyreShopBilling.repository.OrderRepo;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -53,6 +57,34 @@ public class OrderService {
         }
 
         return ordersResponses;
+    }
+
+    public PageResponse<OrdersResponse> getOrdersPaged(int page, int size, String sortBy, String sortDir) {
+        String safeSortBy = (sortBy == null || sortBy.isBlank()) ? "orderId" : sortBy;
+        Sort sort = "asc".equalsIgnoreCase(sortDir)
+                ? Sort.by(safeSortBy).ascending()
+                : Sort.by(safeSortBy).descending();
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size), sort);
+
+        Page<Orders> ordersPage = orderRepo.findAll(pageable);
+
+        Page<OrdersResponse> responsePage = ordersPage.map(order -> {
+            List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
+            return new OrdersResponse(
+                    order.getOrderId(),
+                    order.getCustomerName(),
+                    order.getCustomerMobileNumber(),
+                    order.getGstInNumber(),
+                    order.getInvoiceNumber(),
+                    order.getInvoicePath(),
+                    order.getOrderDate(),
+                    order.getTotalAmount(),
+                    order.getPaymentMethod(),
+                    orderedProductResponses
+            );
+        });
+
+        return PageResponse.from(responsePage);
     }
 
     public OrdersResponse getOrderById(long orderId) {

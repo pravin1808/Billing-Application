@@ -1,41 +1,105 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
-import { Plus, Pencil, Trash2, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const empty = { description: '', size: '', gst: 18, hsnNumber: 0, quantity: 0 };
 
 export default function Products() {
   const [products, setProducts] = useState([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(false);
+
   const [modal, setModal] = useState(null); // null | 'add' | 'edit'
   const [form, setForm] = useState(empty);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
 
-  const load = () => api.getProducts().then(setProducts).catch(() => toast.error('Failed to load products'));
-  useEffect(() => { load(); }, []);
+  const load = (targetPage = page, targetSize = pageSize) => {
+    setLoading(true);
+    api.getProductsPaged(targetPage, targetSize)
+      .then((res) => {
+        if (res && res.content) {
+          setProducts(res.content);
+          setPage(res.pageNumber);
+          setTotalPages(res.totalPages || 1);
+          setTotalElements(res.totalElements || 0);
+        } else if (Array.isArray(res)) {
+          setProducts(res);
+          setTotalElements(res.length);
+        }
+      })
+      .catch(() => toast.error('Failed to load products'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load(page, pageSize);
+  }, [page, pageSize]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setPage(newPage);
+    }
+  };
+
+  const handleSizeChange = (e) => {
+    const newSize = parseInt(e.target.value);
+    setPageSize(newSize);
+    setPage(0);
+  };
 
   const openAdd = () => { setForm(empty); setEditId(null); setModal('add'); };
-  const openEdit = (p) => { setForm({ description: p.description, size: p.size, gst: p.gst, hsnNumber: p.hsnNumber, quantity: p.quantity }); setEditId(p.productId); setModal('edit'); };
+  const openEdit = (p) => {
+    setForm({
+      description: p.description,
+      size: p.size,
+      gst: p.gst,
+      hsnNumber: p.hsnNumber,
+      quantity: p.quantity
+    });
+    setEditId(p.productId);
+    setModal('edit');
+  };
   const close = () => setModal(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const save = async () => {
-    if (!form.description || !form.size) return toast.error('Description and Size are required');
+    if (!form.description.trim() || !form.size.trim()) {
+      return toast.error('Description and Size are required');
+    }
     setSaving(true);
     try {
       if (modal === 'add') {
-        await api.addProduct({ ...form, gst: +form.gst, hsnNumber: +form.hsnNumber, quantity: +form.quantity });
+        await api.addProduct({
+          ...form,
+          description: form.description.trim(),
+          size: form.size.trim(),
+          gst: +form.gst,
+          hsnNumber: +form.hsnNumber,
+          quantity: +form.quantity
+        });
         toast.success('Product added');
       } else {
-        await api.updateProduct(editId, { ...form, gst: +form.gst, hsnNumber: +form.hsnNumber, quantity: +form.quantity });
+        await api.updateProduct(editId, {
+          ...form,
+          description: form.description.trim(),
+          size: form.size.trim(),
+          gst: +form.gst,
+          hsnNumber: +form.hsnNumber,
+          quantity: +form.quantity
+        });
         toast.success('Product updated');
       }
-      close(); load();
-    } catch {
-      toast.error('Operation failed');
+      close();
+      load(page, pageSize);
+    } catch (err) {
+      toast.error(err?.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
@@ -47,24 +111,43 @@ export default function Products() {
     try {
       await api.deleteProduct(id);
       toast.success('Product deleted');
-      load();
-    } catch {
-      toast.error('Delete failed');
+      // If deleting the last item on a page, step back
+      if (products.length === 1 && page > 0) {
+        setPage(page - 1);
+      } else {
+        load(page, pageSize);
+      }
+    } catch (err) {
+      toast.error(err?.message || 'Delete failed');
     } finally {
       setDeleting(null);
     }
   };
 
+  const startIndex = totalElements === 0 ? 0 : page * pageSize + 1;
+  const endIndex = Math.min((page + 1) * pageSize, totalElements);
+
   return (
     <>
-      <div className="card">
-        <div className="section-header">
-          <h2>Product Inventory</h2>
-          <button className="btn btn-primary" onClick={openAdd}><Plus size={16} /> Add Product</button>
+      <div className="card" style={{ paddingBottom: 0 }}>
+        <div className="section-header" style={{ padding: '0 4px 16px' }}>
+          <div>
+            <h2>Product Inventory</h2>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              Manage Tyre products, sizes, stock quantities and GST rates
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={openAdd}>
+            <Plus size={16} /> Add Product
+          </button>
         </div>
+
         <div className="table-wrap">
-          {products.length === 0 ? (
-            <div className="empty-state"><Package /><p>No products yet. Add your first product.</p></div>
+          {products.length === 0 && !loading ? (
+            <div className="empty-state">
+              <Package />
+              <p>No products yet. Add your first product.</p>
+            </div>
           ) : (
             <table>
               <thead>
@@ -81,7 +164,7 @@ export default function Products() {
               <tbody>
                 {products.map((p, i) => (
                   <tr key={p.productId}>
-                    <td style={{ color: 'var(--muted)' }}>{i + 1}</td>
+                    <td style={{ color: 'var(--muted)' }}>{page * pageSize + i + 1}</td>
                     <td style={{ fontWeight: 500 }}>{p.description}</td>
                     <td>{p.size}</td>
                     <td><span className="badge badge-orange">{p.gst}%</span></td>
@@ -93,8 +176,17 @@ export default function Products() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}><Pencil size={13} /></button>
-                        <button className="btn btn-danger btn-sm" disabled={deleting === p.productId} onClick={() => remove(p.productId)}><Trash2 size={13} /></button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)} title="Edit product">
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          disabled={deleting === p.productId}
+                          onClick={() => remove(p.productId)}
+                          title="Delete product"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -103,6 +195,67 @@ export default function Products() {
             </table>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {totalElements > 0 && (
+          <div className="pagination-wrap">
+            <div className="pagination-left">
+              <span>
+                Showing <strong>{startIndex}</strong> to <strong>{endIndex}</strong> of <strong>{totalElements}</strong> products
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>Rows:</span>
+                <select className="pagination-size-select" value={pageSize} onChange={handleSizeChange}>
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="pagination-controls">
+              <button
+                className="pagination-btn"
+                disabled={page === 0 || loading}
+                onClick={() => handlePageChange(page - 1)}
+              >
+                <ChevronLeft size={14} /> Prev
+              </button>
+
+              {Array.from({ length: totalPages }, (_, idx) => {
+                // Show first, last, and window around current page
+                if (
+                  idx === 0 ||
+                  idx === totalPages - 1 ||
+                  (idx >= page - 1 && idx <= page + 1)
+                ) {
+                  return (
+                    <button
+                      key={idx}
+                      className={`pagination-btn ${page === idx ? 'active' : ''}`}
+                      onClick={() => handlePageChange(idx)}
+                      disabled={loading}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                } else if (idx === page - 2 || idx === page + 2) {
+                  return <span key={idx} style={{ color: 'var(--muted)', padding: '0 2px' }}>…</span>;
+                }
+                return null;
+              })}
+
+              <button
+                className="pagination-btn"
+                disabled={page >= totalPages - 1 || loading}
+                onClick={() => handlePageChange(page + 1)}
+              >
+                Next <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {modal && (
@@ -116,11 +269,19 @@ export default function Products() {
               <div className="form-grid">
                 <div className="form-group full">
                   <label>Description</label>
-                  <input value={form.description} onChange={e => set('description', e.target.value)} placeholder="e.g. CEAT Milaze X3" />
+                  <input
+                    value={form.description}
+                    onChange={e => set('description', e.target.value)}
+                    placeholder="e.g. CEAT Milaze X3"
+                  />
                 </div>
                 <div className="form-group">
                   <label>Size</label>
-                  <input value={form.size} onChange={e => set('size', e.target.value)} placeholder="e.g. 185/65 R15" />
+                  <input
+                    value={form.size}
+                    onChange={e => set('size', e.target.value)}
+                    placeholder="e.g. 185/65 R15"
+                  />
                 </div>
                 <div className="form-group">
                   <label>GST %</label>
@@ -131,11 +292,19 @@ export default function Products() {
                 </div>
                 <div className="form-group">
                   <label>HSN Number</label>
-                  <input type="number" value={form.hsnNumber} onChange={e => set('hsnNumber', e.target.value)} />
+                  <input
+                    type="number"
+                    value={form.hsnNumber}
+                    onChange={e => set('hsnNumber', e.target.value)}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Quantity</label>
-                  <input type="number" value={form.quantity} onChange={e => set('quantity', e.target.value)} />
+                  <input
+                    type="number"
+                    value={form.quantity}
+                    onChange={e => set('quantity', e.target.value)}
+                  />
                 </div>
               </div>
             </div>

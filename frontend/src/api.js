@@ -20,6 +20,8 @@ async function handleResponse(res) {
 export const api = {
   // Products
   getProducts: () => fetch(`${API}/products`).then(handleResponse),
+  getProductsPaged: (page = 0, size = 10, sortBy = 'product_id', sortDir = 'asc') =>
+    fetch(`${API}/products/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`).then(handleResponse),
   getProduct: (id) => fetch(`${API}/product/${id}`).then(handleResponse),
   addProduct: (data) => fetch(`${API}/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
   updateProduct: (id, data) => fetch(`${API}/product/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
@@ -27,6 +29,8 @@ export const api = {
 
   // Orders
   getOrders: () => fetch(`${API}/orders`).then(handleResponse),
+  getOrdersPaged: (page = 0, size = 10, sortBy = 'orderId', sortDir = 'desc') =>
+    fetch(`${API}/orders/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`).then(handleResponse),
   getOrder: (id) => fetch(`${API}/order/${id}`).then(handleResponse),
   addOrder: (data) => fetch(`${API}/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
   updateOrder: (id, data) => fetch(`${API}/order/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),

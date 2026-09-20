@@ -1,5 +1,6 @@
 package com.BillingSystem.TyreShopBilling.controller;
 
+import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
 import com.BillingSystem.TyreShopBilling.service.OrderService;
@@ -20,8 +21,26 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping("/orders")
-    public ResponseEntity<List<OrdersResponse>> getAllOrders() {
+    public ResponseEntity<?> getOrders(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(defaultValue = "orderId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        if (page != null || size != null) {
+            int p = (page != null) ? page : 0;
+            int s = (size != null) ? size : 10;
+            return ResponseEntity.ok(orderService.getOrdersPaged(p, s, sortBy, sortDir));
+        }
         return ResponseEntity.ok(orderService.getAllOrders());
+    }
+
+    @GetMapping("/orders/paged")
+    public ResponseEntity<PageResponse<OrdersResponse>> getOrdersPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "orderId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        return ResponseEntity.ok(orderService.getOrdersPaged(page, size, sortBy, sortDir));
     }
 
     @GetMapping("/order/{orderId}")

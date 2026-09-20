@@ -4,10 +4,15 @@ import com.BillingSystem.TyreShopBilling.exception.InsufficientStockException;
 import com.BillingSystem.TyreShopBilling.exception.ResourceAlreadyExistsException;
 import com.BillingSystem.TyreShopBilling.exception.ResourceNotFoundException;
 import com.BillingSystem.TyreShopBilling.model.Product;
+import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductResponse;
 import com.BillingSystem.TyreShopBilling.repository.ProductRepo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -35,6 +40,32 @@ public class ProductService {
             productResponseList.add(productResponse);
         }
         return productResponseList;
+    }
+
+    public PageResponse<ProductResponse> getProductsPaged(int page, int size, String sortBy, String sortDir) {
+        String safeSortBy;
+        if (sortBy == null || sortBy.isBlank() || "product_id".equalsIgnoreCase(sortBy) || "id".equalsIgnoreCase(sortBy)) {
+            safeSortBy = "productId";
+        } else {
+            safeSortBy = sortBy;
+        }
+        Sort sort = "desc".equalsIgnoreCase(sortDir)
+                ? Sort.by(safeSortBy).descending()
+                : Sort.by(safeSortBy).ascending();
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size), sort);
+
+        Page<Product> productPage = productRepo.findAll(pageable);
+
+        Page<ProductResponse> responsePage = productPage.map(product -> new ProductResponse(
+                product.getProduct_id(),
+                product.getDescription(),
+                product.getSize(),
+                product.getGst(),
+                product.getHsnNumber(),
+                product.getQuantity()
+        ));
+
+        return PageResponse.from(responsePage);
     }
 
     public ProductResponse getProductById(int productId) {

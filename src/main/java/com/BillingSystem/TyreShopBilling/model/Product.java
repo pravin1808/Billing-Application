@@ -14,12 +14,21 @@ import lombok.Setter;
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer product_id;
+    @Column(name = "product_id")
+    private Integer productId;
     private String description;
     private String size;
     private Integer hsnNumber;
     private Integer gst;
     private Integer quantity;
+
+    public Integer getProduct_id() {
+        return productId;
+    }
+
+    public void setProduct_id(Integer productId) {
+        this.productId = productId;
+    }
 
     @Setter
     @Transient
@@ -48,8 +57,8 @@ public class Product {
 
     }
 
-    public Product(int product_id) {
-        this.product_id = product_id;
+    public Product(int productId) {
+        this.productId = productId;
     }
 
 
@@ -58,13 +67,13 @@ public class Product {
         return description;
     }
 
-    public Product(String description, String size, Integer HSN_Number, Integer GST, Integer quantity, Integer product_id){
+    public Product(String description, String size, Integer HSN_Number, Integer GST, Integer quantity, Integer productId){
         this.description = description;
         this.size = size;
         this.hsnNumber = HSN_Number;
         this.gst = GST;
         this.quantity = quantity;
-        this.product_id = product_id;
+        this.productId = productId;
     }
 
     public Product(String description) {

@@ -1,5 +1,6 @@
 package com.BillingSystem.TyreShopBilling.controller;
 
+import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductResponse;
 import com.BillingSystem.TyreShopBilling.service.ProductService;
@@ -18,8 +19,26 @@ public class ProductController {
     private ProductService productService;
 
     @GetMapping("/products")
-    public ResponseEntity<List<ProductResponse>> getAllProducts() {
+    public ResponseEntity<?> getProducts(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(defaultValue = "productId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        if (page != null || size != null) {
+            int p = (page != null) ? page : 0;
+            int s = (size != null) ? size : 10;
+            return ResponseEntity.ok(productService.getProductsPaged(p, s, sortBy, sortDir));
+        }
         return ResponseEntity.ok(productService.getAllProducts());
+    }
+
+    @GetMapping("/products/paged")
+    public ResponseEntity<PageResponse<ProductResponse>> getProductsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "productId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        return ResponseEntity.ok(productService.getProductsPaged(page, size, sortBy, sortDir));
     }
 
     @GetMapping("/product/{productId}")
