@@ -11,4 +11,7 @@ import java.util.Optional;
 public interface ProductRepo extends JpaRepository<Product, Integer> {
 
     Optional<Product> findByDescriptionAndSize(String description, String size);
+
+    boolean existsByDescriptionAndSize(String description, String size);
+    
 }

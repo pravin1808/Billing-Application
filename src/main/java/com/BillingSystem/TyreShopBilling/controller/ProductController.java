@@ -22,7 +22,7 @@ public class ProductController {
     }
     @GetMapping("/product/{productId}")
     public ResponseEntity<?> getProductById(@PathVariable int productId) {
-        return productService.getProductById(productId);
+        return new ResponseEntity<>(productService.getProductById(productId), HttpStatus.FOUND);
     }
 
     @PostMapping("/products")

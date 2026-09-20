@@ -3,7 +3,6 @@ package com.BillingSystem.TyreShopBilling.service;
 import com.BillingSystem.TyreShopBilling.InvoiceGenerator;
 import com.BillingSystem.TyreShopBilling.model.OrderedProducts;
 import com.BillingSystem.TyreShopBilling.model.Orders;
-import com.BillingSystem.TyreShopBilling.model.Product;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
@@ -54,16 +53,15 @@ public class OrderService {
         return ordersResponses;
     }
 
-    public ResponseEntity<OrdersResponse> getOrderById(long orderId){
+    public OrdersResponse getOrderById(long orderId){
         Orders order = orderRepo.findById(orderId).orElse(new Orders(-1));
         if(order.getOrderId()<0){
-            System.out.println(1);
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            throw new RuntimeException("Product Not Found");
         }
 
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
 
-        OrdersResponse ordersResponse = new OrdersResponse(
+        return new OrdersResponse(
                 order.getOrderId(),
                 order.getCustomerName(),
                 order.getCustomerMobileNumber(),
@@ -74,7 +72,6 @@ public class OrderService {
                 order.getPaymentMethod(),
                 orderedProductResponses
         );
-        return new ResponseEntity<>(ordersResponse, HttpStatus.FOUND);
     }
 
     public OrdersResponse addNewOrder(OrdersRequest newOrderReq) throws Exception {

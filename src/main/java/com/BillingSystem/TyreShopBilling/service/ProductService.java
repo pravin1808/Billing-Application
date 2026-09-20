@@ -5,8 +5,6 @@ import com.BillingSystem.TyreShopBilling.model.dto.ProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductResponse;
 import com.BillingSystem.TyreShopBilling.repository.ProductRepo;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -36,24 +34,30 @@ public class ProductService {
         return productResponseList;
     }
 
-    public ResponseEntity<?> getProductById(int productId) {
-        Product product = productRepo.findById(productId).orElse(new Product(-1));
-        if(product.getProduct_id()>0) {
-            ProductResponse productResponse = new ProductResponse(
-                    product.getProduct_id(),
-                    product.getDescription(),
-                    product.getSize(),
-                    product.getGst(),
-                    product.getHsnNumber(),
-                    product.getQuantity()
-            );
-            return new ResponseEntity<>(productResponse, HttpStatus.FOUND);
-        }else{
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    public ProductResponse getProductById(int productId) {
+        Optional<Product> product = productRepo.findById(productId);
+        if (product.isEmpty()) {
+            throw new RuntimeException("Product Not Found");
         }
+        Product p = product.get();
+        return new ProductResponse(
+                p.getProduct_id(),
+                p.getDescription(),
+                p.getSize(),
+                p.getGst(),
+                p.getHsnNumber(),
+                p.getQuantity()
+        );
     }
 
     public ProductResponse addProduct(ProductRequest productReq) {
+
+        Optional<Product> exProduct = productRepo.findByDescriptionAndSize(productReq.description(), productReq.size());
+
+        if (exProduct.isPresent()) {
+            throw new RuntimeException("Product Already Exists");
+        }
+
         Product product = new Product();
         product.setDescription(productReq.description());
         product.setSize(productReq.size());
@@ -62,19 +66,18 @@ public class ProductService {
         product.setQuantity(productReq.quantity());
         Product addedProduct = productRepo.save(product);
 
-        ProductResponse productResponse = new ProductResponse(
-                product.getProduct_id(),
+        return new ProductResponse(
+                addedProduct.getProduct_id(),
                 addedProduct.getDescription(),
                 addedProduct.getSize(),
                 addedProduct.getGst(),
                 addedProduct.getHsnNumber(),
                 addedProduct.getQuantity()
         );
-        return productResponse;
     }
 
     public ProductResponse updateProduct(int productId, ProductRequest updatedProduct){
-        Product existingProduct = productRepo.findById(productId).orElse(new Product(-1));
+        Product existingProduct = productRepo.findById(productId).orElseThrow(() -> new RuntimeException("Product Not Found"));
 
         existingProduct.setDescription(updatedProduct.description());
         existingProduct.setSize(updatedProduct.size());
@@ -84,7 +87,7 @@ public class ProductService {
 
         Product newProduct = productRepo.save(existingProduct);
 
-        ProductResponse productResponse = new ProductResponse(
+        return new ProductResponse(
                 newProduct.getProduct_id(),
                 newProduct.getDescription(),
                 newProduct.getSize(),
@@ -92,8 +95,6 @@ public class ProductService {
                 newProduct.getHsnNumber(),
                 newProduct.getQuantity()
         );
-        return productResponse;
-
     }
 
     public void validateStock(String description, String size, int quantitySell) throws Exception {
