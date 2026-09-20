@@ -2,7 +2,6 @@ package com.BillingSystem.TyreShopBilling.controller;
 
 import com.BillingSystem.TyreShopBilling.service.InvoiceNumberService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,15 +11,14 @@ public class InvoiceNumberController {
 
     private InvoiceNumberService invoiceService;
 
-    // To update invoice number whenever wanted
     @PutMapping("/order/invoice/{invoiceNumber}")
-    public ResponseEntity<?> updateInvoiceNumber(@PathVariable int invoiceNumber){
+    public ResponseEntity<String> updateInvoiceNumber(@PathVariable int invoiceNumber) {
         invoiceService.updateInvoiceNumber(invoiceNumber);
-        return new ResponseEntity<>(HttpStatus.OK);
+        return ResponseEntity.ok("Invoice number updated to " + invoiceNumber + " successfully.");
     }
 
     @Autowired
-    public void setInvoiceService(InvoiceNumberService invoiceService){
+    public void setInvoiceService(InvoiceNumberService invoiceService) {
         this.invoiceService = invoiceService;
     }
 }

@@ -1,6 +1,8 @@
 package com.BillingSystem.TyreShopBilling.service;
 
 import com.BillingSystem.TyreShopBilling.InvoiceGenerator;
+import com.BillingSystem.TyreShopBilling.exception.InvoiceGenerationException;
+import com.BillingSystem.TyreShopBilling.exception.ResourceNotFoundException;
 import com.BillingSystem.TyreShopBilling.model.OrderedProducts;
 import com.BillingSystem.TyreShopBilling.model.Orders;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductRequest;
@@ -11,8 +13,6 @@ import com.BillingSystem.TyreShopBilling.repository.OrderRepo;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -30,11 +30,11 @@ public class OrderService {
     private ProductService productService;
 
     public List<OrdersResponse> getAllOrders() {
-        List<Orders> allOrders =  orderRepo.findAll(Sort.by(Sort.Direction.ASC,"orderId"));
+        List<Orders> allOrders = orderRepo.findAll(Sort.by(Sort.Direction.ASC, "orderId"));
 
         List<OrdersResponse> ordersResponses = new ArrayList<>();
 
-        for(Orders order : allOrders){
+        for (Orders order : allOrders) {
             List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
             OrdersResponse ordersResponse = new OrdersResponse(
                     order.getOrderId(),
@@ -53,11 +53,9 @@ public class OrderService {
         return ordersResponses;
     }
 
-    public OrdersResponse getOrderById(long orderId){
-        Orders order = orderRepo.findById(orderId).orElse(new Orders(-1));
-        if(order.getOrderId()<0){
-            throw new RuntimeException("Product Not Found");
-        }
+    public OrdersResponse getOrderById(long orderId) {
+        Orders order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
 
@@ -74,7 +72,7 @@ public class OrderService {
         );
     }
 
-    public OrdersResponse addNewOrder(OrdersRequest newOrderReq) throws Exception {
+    public OrdersResponse addNewOrder(OrdersRequest newOrderReq) {
         Orders newOrder = new Orders();
         newOrder.setCustomerName(newOrderReq.customerName());
         newOrder.setCustomerMobileNumber(newOrderReq.customerMobileNumber());
@@ -82,7 +80,6 @@ public class OrderService {
         newOrder.setOrderDate(LocalDateTime.now());
 
         invoiceNumberService.isEmpty();
-
         String folder = invoicePathService.isEmpty();
 
         newOrder.setInvoiceNumber(invoiceNumberService.getCurrentInvoiceNumber());
@@ -90,33 +87,37 @@ public class OrderService {
         float totalAmount = 0f;
         List<OrderedProducts> orderedProducts = new ArrayList<>();
 
-        for(OrderedProductRequest item : newOrderReq.orderedProducts()){
+        for (OrderedProductRequest item : newOrderReq.orderedProducts()) {
             OrderedProducts orderedProduct = getOrderedProducts(item, newOrder);
-
             totalAmount += orderedProduct.getAmount();
-
             orderedProducts.add(orderedProduct);
         }
+
         newOrder.setTotalAmount(totalAmount);
         newOrder.setPaymentMethod(newOrderReq.paymentMethod());
         newOrder.setOrderedProducts(orderedProducts);
 
-
-        for(OrderedProducts orderedProduct : orderedProducts){
-            productService.validateStock(orderedProduct.getDescription(),
+        // Validate stock for all items before committing any changes
+        for (OrderedProducts orderedProduct : orderedProducts) {
+            productService.validateStock(
+                    orderedProduct.getDescription(),
                     orderedProduct.getSize(),
-                    orderedProduct.getQuantitySell());
+                    orderedProduct.getQuantitySell()
+            );
         }
 
-        for(OrderedProducts orderedProduct1 : orderedProducts){
-            productService.updateStock(orderedProduct1.getDescription(),
-                    orderedProduct1.getSize(),
-                    orderedProduct1.getQuantitySell());
+        // Deduct stock only after all validations pass
+        for (OrderedProducts orderedProduct : orderedProducts) {
+            productService.updateStock(
+                    orderedProduct.getDescription(),
+                    orderedProduct.getSize(),
+                    orderedProduct.getQuantitySell()
+            );
         }
 
         Orders addedOrder = orderRepo.save(newOrder);
 
-        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(newOrder);
+        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(addedOrder);
 
         OrdersResponse ordersResponse = new OrdersResponse(
                 addedOrder.getOrderId(),
@@ -128,19 +129,79 @@ public class OrderService {
                 addedOrder.getTotalAmount(),
                 addedOrder.getPaymentMethod(),
                 orderedProductResponses
-
         );
 
-        invoiceGenerator.invoiceGenerator(ordersResponse, folder);
+        try {
+            invoiceGenerator.invoiceGenerator(ordersResponse, folder);
+        } catch (IOException e) {
+            throw new InvoiceGenerationException(
+                    "Failed to generate invoice for order #" + addedOrder.getInvoiceNumber()
+                            + ". The order was saved but the invoice could not be created.", e
+            );
+        }
 
         return ordersResponse;
     }
 
-    private static @NonNull List<OrderedProductResponse> getOrderedProductResponses(Orders newOrder) {
+    public OrdersResponse updateOrder(long orderId, OrdersRequest updatedOrderReq) {
+        Orders existingOrder = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        existingOrder.setCustomerName(updatedOrderReq.customerName());
+        existingOrder.setCustomerMobileNumber(updatedOrderReq.customerMobileNumber());
+        existingOrder.setGstInNumber(updatedOrderReq.gstInNumber());
+        existingOrder.setOrderDate(LocalDateTime.now());
+        existingOrder.getOrderedProducts().clear();
+
+        float totalAmount = 0f;
+
+        for (OrderedProductRequest item : updatedOrderReq.orderedProducts()) {
+            OrderedProducts orderedProduct = getOrderedProducts(item, existingOrder);
+            totalAmount += orderedProduct.getAmount();
+            existingOrder.getOrderedProducts().add(orderedProduct);
+        }
+        existingOrder.setTotalAmount(totalAmount);
+
+        Orders savedOrder = orderRepo.save(existingOrder);
+
+        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(savedOrder);
+
+        OrdersResponse ordersResponse = new OrdersResponse(
+                savedOrder.getOrderId(),
+                savedOrder.getCustomerName(),
+                savedOrder.getCustomerMobileNumber(),
+                savedOrder.getGstInNumber(),
+                savedOrder.getInvoiceNumber(),
+                savedOrder.getOrderDate(),
+                savedOrder.getTotalAmount(),
+                savedOrder.getPaymentMethod(),
+                orderedProductResponses
+        );
+
+        String folder = invoicePathService.isEmpty();
+
+        try {
+            invoiceGenerator.invoiceGenerator(ordersResponse, folder);
+        } catch (IOException e) {
+            throw new InvoiceGenerationException(
+                    "Order #" + savedOrder.getOrderId() + " was updated but the invoice could not be regenerated.", e
+            );
+        }
+
+        return ordersResponse;
+    }
+
+    public void deleteOrderById(long orderId) {
+        Orders order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        orderRepo.deleteById(order.getOrderId());
+    }
+
+    private static @NonNull List<OrderedProductResponse> getOrderedProductResponses(Orders order) {
         List<OrderedProductResponse> orderedProductResponses = new ArrayList<>();
 
-        for(OrderedProducts product : newOrder.getOrderedProducts()){
-            OrderedProductResponse orderedProductResponse = new OrderedProductResponse(
+        for (OrderedProducts product : order.getOrderedProducts()) {
+            orderedProductResponses.add(new OrderedProductResponse(
                     product.getId(),
                     product.getDescription(),
                     product.getSize(),
@@ -150,14 +211,12 @@ public class OrderService {
                     product.getGstPrice(),
                     product.getQuantitySell(),
                     product.getAmount()
-            );
-
-            orderedProductResponses.add(orderedProductResponse);
+            ));
         }
         return orderedProductResponses;
     }
 
-    private static @NonNull OrderedProducts getOrderedProducts(OrderedProductRequest item, Orders newOrder) {
+    private static @NonNull OrderedProducts getOrderedProducts(OrderedProductRequest item, Orders order) {
         OrderedProducts orderedProduct = new OrderedProducts();
 
         orderedProduct.setDescription(item.description());
@@ -165,94 +224,36 @@ public class OrderService {
         orderedProduct.setHsnNumber(item.hsnNumber());
         orderedProduct.setGst(item.gst());
         orderedProduct.setGstPrice(item.gstPrice());
-        orderedProduct.setPrice((100.0f * orderedProduct.getGstPrice())/(100.0f + orderedProduct.getGst()));
+        orderedProduct.setPrice((100.0f * orderedProduct.getGstPrice()) / (100.0f + orderedProduct.getGst()));
         orderedProduct.setQuantitySell(item.quantitySell());
         orderedProduct.setAmount(orderedProduct.getGstPrice() * orderedProduct.getQuantitySell());
+        orderedProduct.setOrders(order);
 
-        orderedProduct.setOrders(newOrder);
         return orderedProduct;
     }
 
-    public ResponseEntity<OrdersResponse> updateOrder(long orderId, OrdersRequest updatedOrder) throws IOException {
-        Orders existingOrder = orderRepo.findById(orderId).orElse(new Orders(-1));
-        if(existingOrder.getOrderId()<0){
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
-
-        existingOrder.setCustomerName(updatedOrder.customerName());
-        existingOrder.setCustomerMobileNumber(updatedOrder.customerMobileNumber());
-        existingOrder.setGstInNumber(updatedOrder.gstInNumber());
-        existingOrder.setOrderDate(LocalDateTime.now());
-        existingOrder.getOrderedProducts().clear();
-
-        float totalAmount = 0f;
-        List<OrderedProducts> orderedProducts = new ArrayList<>();
-
-        for(OrderedProductRequest item : updatedOrder.orderedProducts()){
-            OrderedProducts orderedProduct = getOrderedProducts(item, existingOrder);
-
-            totalAmount += orderedProduct.getAmount();
-
-            existingOrder.getOrderedProducts().add(orderedProduct);
-        }
-        existingOrder.setTotalAmount(totalAmount);
-
-        Orders updatedOrder1 = orderRepo.save(existingOrder);
-
-        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(updatedOrder1);
-
-        OrdersResponse ordersResponse = new OrdersResponse(
-                updatedOrder1.getOrderId(),
-                updatedOrder1.getCustomerName(),
-                updatedOrder1.getCustomerMobileNumber(),
-                updatedOrder1.getGstInNumber(),
-                updatedOrder1.getInvoiceNumber(),
-                updatedOrder1.getOrderDate(),
-                updatedOrder1.getTotalAmount(),
-                updatedOrder1.getPaymentMethod(),
-                orderedProductResponses
-
-        );
-        String folder = invoicePathService.isEmpty();
-
-        invoiceGenerator.invoiceGenerator(ordersResponse, folder);
-
-        return new ResponseEntity<>(ordersResponse, HttpStatus.OK);
-    }
-
-    public boolean deleteOrderById(long orderId){
-        Orders order = orderRepo.findById(orderId).orElse(new Orders(-1));
-        if(order.getOrderId()<0){
-            return false;
-        }else{
-            orderRepo.deleteById(order.getOrderId());
-            return true;
-        }
-    }
-
     @Autowired
-    public void setOrderRepo(OrderRepo newOrderRepo){
+    public void setOrderRepo(OrderRepo newOrderRepo) {
         this.orderRepo = newOrderRepo;
     }
 
     @Autowired
-    public void setInvoiceNumberService(InvoiceNumberService invoiceNumberService){
+    public void setInvoiceNumberService(InvoiceNumberService invoiceNumberService) {
         this.invoiceNumberService = invoiceNumberService;
     }
 
     @Autowired
-    public void setInvoicePathService(InvoicePathService invoicePathService){
-        this.invoicePathService=invoicePathService;
+    public void setInvoicePathService(InvoicePathService invoicePathService) {
+        this.invoicePathService = invoicePathService;
     }
 
     @Autowired
-    public void setInvoiceGenerator(InvoiceGenerator invoiceGenerator){
+    public void setInvoiceGenerator(InvoiceGenerator invoiceGenerator) {
         this.invoiceGenerator = invoiceGenerator;
     }
 
     @Autowired
-    public void setProductService(ProductService productService){
+    public void setProductService(ProductService productService) {
         this.productService = productService;
     }
-
 }

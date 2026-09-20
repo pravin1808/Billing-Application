@@ -8,7 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -18,48 +17,39 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping("/orders")
-    public ResponseEntity<List<OrdersResponse>> getAllOrders(){
-        return new ResponseEntity<>(orderService.getAllOrders(), HttpStatus.FOUND);
+    public ResponseEntity<List<OrdersResponse>> getAllOrders() {
+        return ResponseEntity.ok(orderService.getAllOrders());
     }
 
     @GetMapping("/order/{orderId}")
-    public ResponseEntity<?> getOrderById(@PathVariable int orderId){
-        return new ResponseEntity<>(orderService.getOrderById(orderId), HttpStatus.FOUND);
+    public ResponseEntity<OrdersResponse> getOrderById(@PathVariable long orderId) {
+        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
+        return ResponseEntity.ok(orderService.getOrderById(orderId));
     }
 
     @PostMapping("/order")
-    public ResponseEntity<?> addOrder(@RequestBody OrdersRequest newOrderRequest){
-        OrdersResponse addedOrder = null;
-        try{
-            addedOrder = orderService.addNewOrder(newOrderRequest);
-            return new ResponseEntity<>(addedOrder, HttpStatus.CREATED);
-        }catch (Exception e){
-            if (e.getMessage().contains("not found")) {
-                return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
-            } else if (e.getMessage().contains("Insufficient")) {
-                return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-            }
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+    public ResponseEntity<OrdersResponse> addOrder(@RequestBody OrdersRequest newOrderRequest) {
+        // InsufficientStockException, InvoiceGenerationException → handled by GlobalExceptionHandler
+        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.addNewOrder(newOrderRequest));
     }
 
     @PutMapping("/order/{orderId}")
-    public ResponseEntity<?> updateOrder(@PathVariable long orderId, @RequestBody OrdersRequest updatedOrder) throws IOException {
-        return new ResponseEntity<>(orderService.updateOrder(orderId, updatedOrder), HttpStatus.OK);
+    public ResponseEntity<OrdersResponse> updateOrder(
+            @PathVariable long orderId,
+            @RequestBody OrdersRequest updatedOrder) {
+        // ResourceNotFoundException, InvoiceGenerationException → handled by GlobalExceptionHandler
+        return ResponseEntity.ok(orderService.updateOrder(orderId, updatedOrder));
     }
 
     @DeleteMapping("/order/{orderId}")
-    public ResponseEntity<?> deleteOrderById(@PathVariable long orderId){
-        boolean isDeleted = orderService.deleteOrderById(orderId);
-        if(isDeleted){
-            return new ResponseEntity<>(HttpStatus.ACCEPTED);
-        }else{
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
+    public ResponseEntity<Void> deleteOrderById(@PathVariable long orderId) {
+        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
+        orderService.deleteOrderById(orderId);
+        return ResponseEntity.noContent().build();
     }
 
     @Autowired
-    public void setOrderService(OrderService orderService){
+    public void setOrderService(OrderService orderService) {
         this.orderService = orderService;
     }
 }

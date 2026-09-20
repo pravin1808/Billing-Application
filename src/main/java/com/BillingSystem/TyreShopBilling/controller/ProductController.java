@@ -17,43 +17,39 @@ public class ProductController {
     private ProductService productService;
 
     @GetMapping("/products")
-    public ResponseEntity<List<ProductResponse>> getAllProducts(){
-        return new ResponseEntity<>(productService.getAllProducts(), HttpStatus.OK);
+    public ResponseEntity<List<ProductResponse>> getAllProducts() {
+        return ResponseEntity.ok(productService.getAllProducts());
     }
+
     @GetMapping("/product/{productId}")
-    public ResponseEntity<?> getProductById(@PathVariable int productId) {
-        return new ResponseEntity<>(productService.getProductById(productId), HttpStatus.FOUND);
+    public ResponseEntity<ProductResponse> getProductById(@PathVariable int productId) {
+        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
+        return ResponseEntity.ok(productService.getProductById(productId));
     }
 
     @PostMapping("/products")
-    public ResponseEntity<?> addProduct(@RequestBody ProductRequest productReq){
-
-        ProductResponse savedProduct = null;
-        try{
-            savedProduct = productService.addProduct(productReq);
-            return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
-        }catch(Exception e){
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        }
+    public ResponseEntity<ProductResponse> addProduct(@RequestBody ProductRequest productReq) {
+        // ResourceAlreadyExistsException thrown by service → handled by GlobalExceptionHandler
+        return ResponseEntity.status(HttpStatus.CREATED).body(productService.addProduct(productReq));
     }
 
     @PutMapping("/product/{productId}")
-    public ResponseEntity<?> updateProduct(@PathVariable int productId,@RequestBody ProductRequest updatedProduct){
-        return new ResponseEntity<>(productService.updateProduct(productId, updatedProduct), HttpStatus.ACCEPTED);
+    public ResponseEntity<ProductResponse> updateProduct(
+            @PathVariable int productId,
+            @RequestBody ProductRequest updatedProduct) {
+        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
+        return ResponseEntity.ok(productService.updateProduct(productId, updatedProduct));
     }
 
     @DeleteMapping("/product/{productId}")
-    public ResponseEntity<?> deleteProductById(@PathVariable int productId){
-        boolean isDeleted = productService.deleteProductById(productId);
-        if(isDeleted){
-            return new ResponseEntity<>(HttpStatus.ACCEPTED);
-        }else{
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
+    public ResponseEntity<Void> deleteProductById(@PathVariable int productId) {
+        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
+        productService.deleteProductById(productId);
+        return ResponseEntity.noContent().build();
     }
 
     @Autowired
-    public void setProductService(ProductService productService){
+    public void setProductService(ProductService productService) {
         this.productService = productService;
     }
 

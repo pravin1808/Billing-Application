@@ -1,5 +1,8 @@
 package com.BillingSystem.TyreShopBilling.service;
 
+import com.BillingSystem.TyreShopBilling.exception.InsufficientStockException;
+import com.BillingSystem.TyreShopBilling.exception.ResourceAlreadyExistsException;
+import com.BillingSystem.TyreShopBilling.exception.ResourceNotFoundException;
 import com.BillingSystem.TyreShopBilling.model.Product;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductResponse;
@@ -35,27 +38,26 @@ public class ProductService {
     }
 
     public ProductResponse getProductById(int productId) {
-        Optional<Product> product = productRepo.findById(productId);
-        if (product.isEmpty()) {
-            throw new RuntimeException("Product Not Found");
-        }
-        Product p = product.get();
+        Product product = productRepo.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+
         return new ProductResponse(
-                p.getProduct_id(),
-                p.getDescription(),
-                p.getSize(),
-                p.getGst(),
-                p.getHsnNumber(),
-                p.getQuantity()
+                product.getProduct_id(),
+                product.getDescription(),
+                product.getSize(),
+                product.getGst(),
+                product.getHsnNumber(),
+                product.getQuantity()
         );
     }
 
     public ProductResponse addProduct(ProductRequest productReq) {
-
-        Optional<Product> exProduct = productRepo.findByDescriptionAndSize(productReq.description(), productReq.size());
-
-        if (exProduct.isPresent()) {
-            throw new RuntimeException("Product Already Exists");
+        if (productRepo.findByDescriptionAndSize(productReq.description(), productReq.size()).isPresent()) {
+            throw new ResourceAlreadyExistsException(
+                    "Product",
+                    "description and size",
+                    productReq.description() + " / " + productReq.size()
+            );
         }
 
         Product product = new Product();
@@ -77,7 +79,8 @@ public class ProductService {
     }
 
     public ProductResponse updateProduct(int productId, ProductRequest updatedProduct){
-        Product existingProduct = productRepo.findById(productId).orElseThrow(() -> new RuntimeException("Product Not Found"));
+        Product existingProduct = productRepo.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
         existingProduct.setDescription(updatedProduct.description());
         existingProduct.setSize(updatedProduct.size());
@@ -97,19 +100,18 @@ public class ProductService {
         );
     }
 
-    public void validateStock(String description, String size, int quantitySell) throws Exception {
-
+    public void validateStock(String description, String size, int quantitySell) {
         Optional<Product> optionalProduct = productRepo.findByDescriptionAndSize(description, size);
         if (optionalProduct.isEmpty()) {
             return;
         }
         Product product = optionalProduct.get();
-        if(product.getQuantity()<quantitySell){
-            throw new RuntimeException("Insufficient stock for : "+product.getDescription());
+        if (product.getQuantity() < quantitySell) {
+            throw new InsufficientStockException(product.getDescription(), quantitySell, product.getQuantity());
         }
     }
 
-    public void updateStock(String description, String size, int quantitySell){
+    public void updateStock(String description, String size, int quantitySell) {
         Optional<Product> optionalProduct = productRepo.findByDescriptionAndSize(description, size);
         if (optionalProduct.isEmpty()) {
             return;
@@ -119,14 +121,12 @@ public class ProductService {
         productRepo.save(product);
     }
 
-    public boolean deleteProductById(int productId){
-        Product toDeleteProduct = productRepo.findById(productId).orElse(new Product(-1));
-        if(toDeleteProduct.getProduct_id()>0){
-            productRepo.deleteById(productId);
-            return true;
-        }else{
-            return false;
+    public boolean deleteProductById(int productId) {
+        if (!productRepo.existsById(productId)) {
+            throw new ResourceNotFoundException("Product", "id", productId);
         }
+        productRepo.deleteById(productId);
+        return true;
     }
 
     @Autowired
