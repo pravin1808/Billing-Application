@@ -23,13 +23,11 @@ public class ProductController {
 
     @GetMapping("/product/{productId}")
     public ResponseEntity<ProductResponse> getProductById(@PathVariable int productId) {
-        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
         return ResponseEntity.ok(productService.getProductById(productId));
     }
 
     @PostMapping("/products")
     public ResponseEntity<ProductResponse> addProduct(@RequestBody ProductRequest productReq) {
-        // ResourceAlreadyExistsException thrown by service → handled by GlobalExceptionHandler
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.addProduct(productReq));
     }
 
@@ -37,13 +35,11 @@ public class ProductController {
     public ResponseEntity<ProductResponse> updateProduct(
             @PathVariable int productId,
             @RequestBody ProductRequest updatedProduct) {
-        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
         return ResponseEntity.ok(productService.updateProduct(productId, updatedProduct));
     }
 
     @DeleteMapping("/product/{productId}")
     public ResponseEntity<Void> deleteProductById(@PathVariable int productId) {
-        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
         productService.deleteProductById(productId);
         return ResponseEntity.noContent().build();
     }

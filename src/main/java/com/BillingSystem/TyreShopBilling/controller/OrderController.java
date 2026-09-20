@@ -23,13 +23,11 @@ public class OrderController {
 
     @GetMapping("/order/{orderId}")
     public ResponseEntity<OrdersResponse> getOrderById(@PathVariable long orderId) {
-        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
         return ResponseEntity.ok(orderService.getOrderById(orderId));
     }
 
     @PostMapping("/order")
     public ResponseEntity<OrdersResponse> addOrder(@RequestBody OrdersRequest newOrderRequest) {
-        // InsufficientStockException, InvoiceGenerationException → handled by GlobalExceptionHandler
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.addNewOrder(newOrderRequest));
     }
 
@@ -37,13 +35,11 @@ public class OrderController {
     public ResponseEntity<OrdersResponse> updateOrder(
             @PathVariable long orderId,
             @RequestBody OrdersRequest updatedOrder) {
-        // ResourceNotFoundException, InvoiceGenerationException → handled by GlobalExceptionHandler
         return ResponseEntity.ok(orderService.updateOrder(orderId, updatedOrder));
     }
 
     @DeleteMapping("/order/{orderId}")
     public ResponseEntity<Void> deleteOrderById(@PathVariable long orderId) {
-        // ResourceNotFoundException thrown by service → handled by GlobalExceptionHandler
         orderService.deleteOrderById(orderId);
         return ResponseEntity.noContent().build();
     }
