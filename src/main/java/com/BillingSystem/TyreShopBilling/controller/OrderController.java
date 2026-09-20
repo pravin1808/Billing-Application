@@ -4,7 +4,9 @@ import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
 import com.BillingSystem.TyreShopBilling.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,6 +44,21 @@ public class OrderController {
     public ResponseEntity<Void> deleteOrderById(@PathVariable long orderId) {
         orderService.deleteOrderById(orderId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/order/{orderId}/invoice")
+    public ResponseEntity<byte[]> getInvoicePdf(@PathVariable long orderId) {
+        byte[] pdf = orderService.getInvoicePdf(orderId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("inline", "invoice-" + orderId + ".pdf");
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
+    }
+
+    @PostMapping("/order/{orderId}/invoice/print")
+    public ResponseEntity<String> printInvoice(@PathVariable long orderId) {
+        orderService.printOrderInvoice(orderId);
+        return ResponseEntity.ok("Invoice for order #" + orderId + " sent to printer successfully.");
     }
 
     @Autowired

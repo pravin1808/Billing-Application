@@ -18,6 +18,7 @@ public class Orders {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long orderId;
     private int invoiceNumber;
+    private String invoicePath;
     private String customerName;
     private long customerMobileNumber;
     private String gstInNumber;

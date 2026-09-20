@@ -16,6 +16,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,18 +38,18 @@ public class OrderService {
 
         for (Orders order : allOrders) {
             List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
-            OrdersResponse ordersResponse = new OrdersResponse(
+            ordersResponses.add(new OrdersResponse(
                     order.getOrderId(),
                     order.getCustomerName(),
                     order.getCustomerMobileNumber(),
                     order.getGstInNumber(),
                     order.getInvoiceNumber(),
+                    order.getInvoicePath(),
                     order.getOrderDate(),
                     order.getTotalAmount(),
                     order.getPaymentMethod(),
                     orderedProductResponses
-            );
-            ordersResponses.add(ordersResponse);
+            ));
         }
 
         return ordersResponses;
@@ -65,6 +67,7 @@ public class OrderService {
                 order.getCustomerMobileNumber(),
                 order.getGstInNumber(),
                 order.getInvoiceNumber(),
+                order.getInvoicePath(),
                 order.getOrderDate(),
                 order.getTotalAmount(),
                 order.getPaymentMethod(),
@@ -97,7 +100,6 @@ public class OrderService {
         newOrder.setPaymentMethod(newOrderReq.paymentMethod());
         newOrder.setOrderedProducts(orderedProducts);
 
-        // Validate stock for all items before committing any changes
         for (OrderedProducts orderedProduct : orderedProducts) {
             productService.validateStock(
                     orderedProduct.getDescription(),
@@ -106,7 +108,6 @@ public class OrderService {
             );
         }
 
-        // Deduct stock only after all validations pass
         for (OrderedProducts orderedProduct : orderedProducts) {
             productService.updateStock(
                     orderedProduct.getDescription(),
@@ -119,28 +120,41 @@ public class OrderService {
 
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(addedOrder);
 
-        OrdersResponse ordersResponse = new OrdersResponse(
-                addedOrder.getOrderId(),
-                addedOrder.getCustomerName(),
-                addedOrder.getCustomerMobileNumber(),
-                addedOrder.getGstInNumber(),
-                addedOrder.getInvoiceNumber(),
-                addedOrder.getOrderDate(),
-                addedOrder.getTotalAmount(),
-                addedOrder.getPaymentMethod(),
-                orderedProductResponses
-        );
-
         try {
-            invoiceGenerator.invoiceGenerator(ordersResponse, folder);
-        } catch (IOException e) {
+            String pdfPath = invoiceGenerator.invoiceGenerator(new OrdersResponse(
+                    addedOrder.getOrderId(),
+                    addedOrder.getCustomerName(),
+                    addedOrder.getCustomerMobileNumber(),
+                    addedOrder.getGstInNumber(),
+                    addedOrder.getInvoiceNumber(),
+                    null,
+                    addedOrder.getOrderDate(),
+                    addedOrder.getTotalAmount(),
+                    addedOrder.getPaymentMethod(),
+                    orderedProductResponses
+            ), folder);
+
+            addedOrder.setInvoicePath(pdfPath);
+            orderRepo.save(addedOrder);
+
+            return new OrdersResponse(
+                    addedOrder.getOrderId(),
+                    addedOrder.getCustomerName(),
+                    addedOrder.getCustomerMobileNumber(),
+                    addedOrder.getGstInNumber(),
+                    addedOrder.getInvoiceNumber(),
+                    pdfPath,
+                    addedOrder.getOrderDate(),
+                    addedOrder.getTotalAmount(),
+                    addedOrder.getPaymentMethod(),
+                    orderedProductResponses
+            );
+        } catch (Exception e) {
             throw new InvoiceGenerationException(
                     "Failed to generate invoice for order #" + addedOrder.getInvoiceNumber()
                             + ". The order was saved but the invoice could not be created.", e
             );
         }
-
-        return ordersResponse;
     }
 
     public OrdersResponse updateOrder(long orderId, OrdersRequest updatedOrderReq) {
@@ -166,35 +180,84 @@ public class OrderService {
 
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(savedOrder);
 
-        OrdersResponse ordersResponse = new OrdersResponse(
-                savedOrder.getOrderId(),
-                savedOrder.getCustomerName(),
-                savedOrder.getCustomerMobileNumber(),
-                savedOrder.getGstInNumber(),
-                savedOrder.getInvoiceNumber(),
-                savedOrder.getOrderDate(),
-                savedOrder.getTotalAmount(),
-                savedOrder.getPaymentMethod(),
-                orderedProductResponses
-        );
-
         String folder = invoicePathService.isEmpty();
 
         try {
-            invoiceGenerator.invoiceGenerator(ordersResponse, folder);
-        } catch (IOException e) {
+            String pdfPath = invoiceGenerator.invoiceGenerator(new OrdersResponse(
+                    savedOrder.getOrderId(),
+                    savedOrder.getCustomerName(),
+                    savedOrder.getCustomerMobileNumber(),
+                    savedOrder.getGstInNumber(),
+                    savedOrder.getInvoiceNumber(),
+                    null,
+                    savedOrder.getOrderDate(),
+                    savedOrder.getTotalAmount(),
+                    savedOrder.getPaymentMethod(),
+                    orderedProductResponses
+            ), folder);
+
+            savedOrder.setInvoicePath(pdfPath);
+            orderRepo.save(savedOrder);
+
+            return new OrdersResponse(
+                    savedOrder.getOrderId(),
+                    savedOrder.getCustomerName(),
+                    savedOrder.getCustomerMobileNumber(),
+                    savedOrder.getGstInNumber(),
+                    savedOrder.getInvoiceNumber(),
+                    pdfPath,
+                    savedOrder.getOrderDate(),
+                    savedOrder.getTotalAmount(),
+                    savedOrder.getPaymentMethod(),
+                    orderedProductResponses
+            );
+        } catch (Exception e) {
             throw new InvoiceGenerationException(
                     "Order #" + savedOrder.getOrderId() + " was updated but the invoice could not be regenerated.", e
             );
         }
-
-        return ordersResponse;
     }
 
     public void deleteOrderById(long orderId) {
         Orders order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
         orderRepo.deleteById(order.getOrderId());
+    }
+
+    public void printOrderInvoice(long orderId) {
+        Orders order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        String path = order.getInvoicePath();
+        if (path == null || path.isBlank()) {
+            throw new ResourceNotFoundException("Invoice PDF for order", "id", orderId);
+        }
+
+        try {
+            InvoiceGenerator.printInvoice(path);
+        } catch (Exception e) {
+            throw new InvoiceGenerationException(
+                    "Failed to send invoice for order #" + orderId + " to printer.", e
+            );
+        }
+    }
+
+    public byte[] getInvoicePdf(long orderId) {
+        Orders order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        String path = order.getInvoicePath();
+        if (path == null || path.isBlank()) {
+            throw new ResourceNotFoundException("Invoice PDF for order", "id", orderId);
+        }
+
+        try {
+            return Files.readAllBytes(Path.of(path));
+        } catch (IOException e) {
+            throw new InvoiceGenerationException(
+                    "Invoice file for order #" + orderId + " could not be read from disk.", e
+            );
+        }
     }
 
     private static @NonNull List<OrderedProductResponse> getOrderedProductResponses(Orders order) {

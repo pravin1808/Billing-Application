@@ -11,6 +11,7 @@ public record OrdersResponse(
         long customerMobileNumber,
         String gstInNumber,
         int invoiceNumber,
+        String invoicePath,
         @JsonFormat(pattern = "dd-MM-yyyy hh:mm a")
         LocalDateTime orderDate,
         float totalAmount,

@@ -39,7 +39,7 @@ import java.io.*;
 @Component
 public class InvoiceGenerator {
 
-    public void invoiceGenerator(OrdersResponse ordersResponse, String orgFolder)throws IOException {
+    public String invoiceGenerator(OrdersResponse ordersResponse, String orgFolder) throws Exception {
         PdfFont boldFont = PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD);
 
         File folder = new File(orgFolder);
@@ -465,6 +465,7 @@ public class InvoiceGenerator {
 
         printInvoice(String.valueOf(file));
 
+        return file.getAbsolutePath();
     }
 
     private static @NonNull PdfDocument getPdfDocument(File file, File folder) throws FileNotFoundException {
@@ -507,29 +508,24 @@ public class InvoiceGenerator {
         return pdf;
     }
 
-    public static void printInvoice(String pdfPath) {
-        try {
-            File pdfFile = new File(pdfPath);
-            if (pdfFile.exists()) {
-                // Load the already saved invoice
-                PDDocument document = PDDocument.load(pdfFile);
-
-                PrinterJob job = PrinterJob.getPrinterJob();
-                job.setPageable(new PDFPageable(document));
-
-                // Optional: set A5 paper size programmatically
-                job.defaultPage(new java.awt.print.PageFormat() {{
-                    setPaper(new java.awt.print.Paper() {{
-                        setSize(420, 595);  // A5 in points (1/72 inch)
-                        setImageableArea(20, 20, 380, 555);
-                    }});
-                }});
-                job.print(); // Direct print, no save prompt
-
-                document.close();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    public static void printInvoice(String pdfPath) throws Exception {
+        File pdfFile = new File(pdfPath);
+        if (!pdfFile.exists()) {
+            throw new java.io.FileNotFoundException("Invoice file not found: " + pdfPath);
         }
+
+        PDDocument document = PDDocument.load(pdfFile);
+        PrinterJob job = PrinterJob.getPrinterJob();
+        job.setPageable(new PDFPageable(document));
+
+        job.defaultPage(new java.awt.print.PageFormat() {{
+            setPaper(new java.awt.print.Paper() {{
+                setSize(420, 595);
+                setImageableArea(20, 20, 380, 555);
+            }});
+        }});
+
+        job.print();
+        document.close();
     }
 }
