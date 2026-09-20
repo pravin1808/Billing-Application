@@ -1,0 +1,41 @@
+const API = '/api';
+
+async function handleResponse(res) {
+  const contentType = res.headers.get('content-type') || '';
+  let data;
+  if (contentType.includes('application/json')) {
+    data = await res.json();
+  } else {
+    data = await res.text();
+  }
+
+  if (!res.ok) {
+    const errorMsg = typeof data === 'object' && data?.message ? data.message : (data || res.statusText);
+    throw new Error(errorMsg);
+  }
+
+  return data;
+}
+
+export const api = {
+  // Products
+  getProducts: () => fetch(`${API}/products`).then(handleResponse),
+  getProduct: (id) => fetch(`${API}/product/${id}`).then(handleResponse),
+  addProduct: (data) => fetch(`${API}/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
+  updateProduct: (id, data) => fetch(`${API}/product/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
+  deleteProduct: (id) => fetch(`${API}/product/${id}`, { method: 'DELETE' }).then(handleResponse),
+
+  // Orders
+  getOrders: () => fetch(`${API}/orders`).then(handleResponse),
+  getOrder: (id) => fetch(`${API}/order/${id}`).then(handleResponse),
+  addOrder: (data) => fetch(`${API}/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
+  updateOrder: (id, data) => fetch(`${API}/order/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
+  deleteOrder: (id) => fetch(`${API}/order/${id}`, { method: 'DELETE' }).then(handleResponse),
+  printInvoice: (id) => fetch(`${API}/order/${id}/invoice/print`, { method: 'POST' }).then(handleResponse),
+  getInvoiceUrl: (id) => `${API}/order/${id}/invoice`,
+
+  // Settings
+  updateInvoiceNumber: (num) => fetch(`${API}/order/invoice/${num}`, { method: 'PUT' }).then(handleResponse),
+  updateInvoicePath: (path) => fetch(`${API}/order/invoicePath`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invoicePath: path }) }).then(handleResponse),
+  selectFolderFromDisk: (current) => fetch(`/api/select-folder?current=${encodeURIComponent(current || '')}`).then(handleResponse),
+};
