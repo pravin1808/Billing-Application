@@ -3,6 +3,7 @@ package com.BillingSystem.TyreShopBilling.controller;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
 import com.BillingSystem.TyreShopBilling.service.OrderService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -29,14 +30,14 @@ public class OrderController {
     }
 
     @PostMapping("/order")
-    public ResponseEntity<OrdersResponse> addOrder(@RequestBody OrdersRequest newOrderRequest) {
+    public ResponseEntity<OrdersResponse> addOrder(@Valid @RequestBody OrdersRequest newOrderRequest) {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.addNewOrder(newOrderRequest));
     }
 
     @PutMapping("/order/{orderId}")
     public ResponseEntity<OrdersResponse> updateOrder(
             @PathVariable long orderId,
-            @RequestBody OrdersRequest updatedOrder) {
+            @Valid @RequestBody OrdersRequest updatedOrder) {
         return ResponseEntity.ok(orderService.updateOrder(orderId, updatedOrder));
     }
 
