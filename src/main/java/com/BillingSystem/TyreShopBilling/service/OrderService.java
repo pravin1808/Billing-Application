@@ -59,14 +59,20 @@ public class OrderService {
         return ordersResponses;
     }
 
-    public PageResponse<OrdersResponse> getOrdersPaged(int page, int size, String sortBy, String sortDir) {
+    public PageResponse<OrdersResponse> getOrdersPaged(int page, int size, String sortBy, String sortDir, String search) {
         String safeSortBy = (sortBy == null || sortBy.isBlank()) ? "orderDate" : sortBy;
         Sort sort = "asc".equalsIgnoreCase(sortDir)
                 ? Sort.by(safeSortBy).ascending()
                 : Sort.by(safeSortBy).descending();
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size), sort);
 
-        Page<Orders> ordersPage = orderRepo.findAll(pageable);
+        Page<Orders> ordersPage;
+
+        if(search == null || search.isBlank()){
+            ordersPage = orderRepo.findAll(pageable);
+        }else{
+            ordersPage = orderRepo.searchOrders(search.trim(), pageable);
+        }
 
         Page<OrdersResponse> responsePage = ordersPage.map(order -> {
             List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);

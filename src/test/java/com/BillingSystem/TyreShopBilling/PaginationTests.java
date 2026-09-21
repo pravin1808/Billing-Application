@@ -76,7 +76,7 @@ class PaginationTests {
         Page<Orders> page = new PageImpl<>(List.of(o1), Pageable.ofSize(1), 1);
         when(orderRepo.findAll(any(Pageable.class))).thenReturn(page);
 
-        PageResponse<OrdersResponse> response = orderService.getOrdersPaged(0, 1, "orderId", "desc");
+        PageResponse<OrdersResponse> response = orderService.getOrdersPaged(0, 1, "orderId", "desc", null);
 
         assertNotNull(response);
         assertEquals(1, response.content().size());
@@ -86,5 +86,26 @@ class PaginationTests {
         assertEquals(1, response.totalPages());
         assertTrue(response.isLast());
         assertEquals("Sunil Verma", response.content().get(0).customerName());
+    }
+
+    @Test
+    void whenGetOrdersPaged_withSearch_thenCallsSearchOrders() {
+        Orders o1 = new Orders();
+        o1.setOrderId(102);
+        o1.setCustomerName("Akash Patel");
+        o1.setCustomerMobileNumber(9123456780L);
+        o1.setOrderDate(LocalDateTime.now());
+        o1.setTotalAmount(3500.0f);
+        o1.setPaymentMethod("UPI");
+        o1.setOrderedProducts(new ArrayList<>());
+
+        Page<Orders> page = new PageImpl<>(List.of(o1), Pageable.ofSize(1), 1);
+        when(orderRepo.searchOrders(org.mockito.ArgumentMatchers.eq("Akash"), any(Pageable.class))).thenReturn(page);
+
+        PageResponse<OrdersResponse> response = orderService.getOrdersPaged(0, 1, "orderId", "desc", "Akash");
+
+        assertNotNull(response);
+        assertEquals(1, response.content().size());
+        assertEquals("Akash Patel", response.content().get(0).customerName());
     }
 }

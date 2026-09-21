@@ -19,16 +19,7 @@ public class ProductController {
     private ProductService productService;
 
     @GetMapping("/products")
-    public ResponseEntity<?> getProducts(
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size,
-            @RequestParam(defaultValue = "productId") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
-        if (page != null || size != null) {
-            int p = (page != null) ? page : 0;
-            int s = (size != null) ? size : 10;
-            return ResponseEntity.ok(productService.getProductsPaged(p, s, sortBy, sortDir));
-        }
+    public ResponseEntity<List<ProductResponse>> getAllProducts() {
         return ResponseEntity.ok(productService.getAllProducts());
     }
 

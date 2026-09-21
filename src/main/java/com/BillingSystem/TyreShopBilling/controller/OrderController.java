@@ -21,16 +21,7 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping("/orders")
-    public ResponseEntity<?> getOrders(
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size,
-            @RequestParam(defaultValue = "orderId") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-        if (page != null || size != null) {
-            int p = (page != null) ? page : 0;
-            int s = (size != null) ? size : 10;
-            return ResponseEntity.ok(orderService.getOrdersPaged(p, s, sortBy, sortDir));
-        }
+    public ResponseEntity<List<OrdersResponse>> getAllOrders() {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
@@ -39,8 +30,9 @@ public class OrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "orderId") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-        return ResponseEntity.ok(orderService.getOrdersPaged(page, size, sortBy, sortDir));
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(orderService.getOrdersPaged(page, size, sortBy, sortDir, search));
     }
 
     @GetMapping("/order/{orderId}")

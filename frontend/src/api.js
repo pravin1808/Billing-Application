@@ -29,8 +29,13 @@ export const api = {
 
   // Orders
   getOrders: () => fetch(`${API}/orders`).then(handleResponse),
-  getOrdersPaged: (page = 0, size = 10, sortBy = 'orderId', sortDir = 'desc') =>
-    fetch(`${API}/orders/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`).then(handleResponse),
+  getOrdersPaged: (page = 0, size = 10, sortBy = 'orderId', sortDir = 'desc', search = '') => {
+    let url = `${API}/orders/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`;
+    if (search && search.trim()) {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+    return fetch(url).then(handleResponse);
+  },
   getOrder: (id) => fetch(`${API}/order/${id}`).then(handleResponse),
   addOrder: (data) => fetch(`${API}/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
   updateOrder: (id, data) => fetch(`${API}/order/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),

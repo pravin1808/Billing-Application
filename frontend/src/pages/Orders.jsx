@@ -34,6 +34,8 @@ export default function Orders() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const [inventory, setInventory] = useState([]);
   const [modal, setModal] = useState(false);
@@ -45,10 +47,19 @@ export default function Orders() {
   const [viewingInvoiceId, setViewingInvoiceId] = useState(null);
   const navigate = useNavigate();
 
-  const load = (targetPage = page, targetSize = pageSize) => {
+  // Debounce search input so backend isn't bombarded on each keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(orderSearch.trim());
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [orderSearch]);
+
+  const load = (targetPage = page, targetSize = pageSize, targetSearch = debouncedSearch) => {
     setLoadingOrders(true);
     api
-      .getOrdersPaged(targetPage, targetSize, 'orderId', 'desc')
+      .getOrdersPaged(targetPage, targetSize, 'orderId', 'desc', targetSearch)
       .then((res) => {
         if (res && res.content) {
           setOrders(res.content);
@@ -70,8 +81,22 @@ export default function Orders() {
   };
 
   useEffect(() => {
-    load(page, pageSize);
-  }, [page, pageSize]);
+    load(page, pageSize, debouncedSearch);
+  }, [page, pageSize, debouncedSearch]);
+
+  const handleClearOrderSearch = () => {
+    setOrderSearch('');
+    setDebouncedSearch('');
+    setPage(0);
+  };
+
+  const handleOrderSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setDebouncedSearch(orderSearch.trim());
+      setPage(0);
+    }
+  };
 
   const handlePageChange = (newPage) => {
     if (newPage >= 0 && newPage < totalPages) {
@@ -214,7 +239,7 @@ export default function Orders() {
       if (page !== 0) {
         setPage(0);
       } else {
-        load(0, pageSize);
+        load(0, pageSize, debouncedSearch);
       }
       if (createdOrder?.orderId) {
         setViewingInvoiceId(createdOrder.orderId);
@@ -247,7 +272,7 @@ export default function Orders() {
       if (orders.length === 1 && page > 0) {
         setPage(page - 1);
       } else {
-        load(page, pageSize);
+        load(page, pageSize, debouncedSearch);
       }
     } catch {
       toast.error('Delete failed');
@@ -271,17 +296,80 @@ export default function Orders() {
   return (
     <>
       <div className="card">
-        <div className="section-header">
+        <div className="section-header" style={{ flexWrap: 'wrap', gap: 12 }}>
           <h2>All Orders</h2>
-          <button className="btn btn-primary" onClick={openNewOrderModal}>
-            <Plus size={16} /> New Order
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', width: 280, maxWidth: '100%' }}>
+              <Search
+                size={15}
+                style={{
+                  position: 'absolute',
+                  left: 11,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--muted)',
+                  pointerEvents: 'none',
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Search orders..."
+                value={orderSearch}
+                onChange={(e) => setOrderSearch(e.target.value)}
+                onKeyDown={handleOrderSearchKeyDown}
+                style={{
+                  padding: '7px 32px 7px 34px',
+                  fontSize: 13,
+                  width: '100%',
+                }}
+              />
+              {orderSearch && (
+                <button
+                  type="button"
+                  onClick={handleClearOrderSearch}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--muted)',
+                    cursor: 'pointer',
+                    padding: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  title="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <button className="btn btn-primary" onClick={openNewOrderModal}>
+              <Plus size={16} /> New Order
+            </button>
+          </div>
         </div>
         <div className="table-wrap">
           {orders.length === 0 ? (
             <div className="empty-state">
               <ShoppingCart />
-              <p>No orders yet.</p>
+              {debouncedSearch ? (
+                <>
+                  <p>No orders found matching "{debouncedSearch}"</p>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleClearOrderSearch}
+                    style={{ marginTop: 4 }}
+                  >
+                    Clear Search
+                  </button>
+                </>
+              ) : (
+                <p>No orders yet.</p>
+              )}
             </div>
           ) : (
             <table>
@@ -356,7 +444,7 @@ export default function Orders() {
           <div className="pagination-wrap">
             <div className="pagination-left">
               <span>
-                Showing <strong>{totalElements === 0 ? 0 : page * pageSize + 1}</strong> to <strong>{Math.min((page + 1) * pageSize, totalElements)}</strong> of <strong>{totalElements}</strong> orders
+                Showing <strong>{totalElements === 0 ? 0 : page * pageSize + 1}</strong> to <strong>{Math.min((page + 1) * pageSize, totalElements)}</strong> of <strong>{totalElements}</strong> orders{debouncedSearch ? ` (filtered)` : ''}
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span>Rows:</span>
