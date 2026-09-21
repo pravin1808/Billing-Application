@@ -287,7 +287,7 @@ export default function Orders() {
             <table>
               <thead>
                 <tr>
-                  <th>Invoice #</th>
+                  <th>Sr. No</th>
                   <th>Customer</th>
                   <th>Mobile</th>
                   <th>Date</th>
@@ -297,10 +297,10 @@ export default function Orders() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
+                {orders.map((o, index) => (
                   <tr key={o.orderId}>
                     <td>
-                      <span className="badge badge-orange">#{o.invoiceNumber}</span>
+                      <span >{page * pageSize + index + 1}</span>
                     </td>
                     <td style={{ fontWeight: 500 }}>{o.customerName}</td>
                     <td style={{ color: 'var(--muted)' }}>{o.customerMobileNumber}</td>

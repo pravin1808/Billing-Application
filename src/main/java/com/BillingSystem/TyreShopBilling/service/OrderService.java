@@ -60,7 +60,7 @@ public class OrderService {
     }
 
     public PageResponse<OrdersResponse> getOrdersPaged(int page, int size, String sortBy, String sortDir) {
-        String safeSortBy = (sortBy == null || sortBy.isBlank()) ? "orderId" : sortBy;
+        String safeSortBy = (sortBy == null || sortBy.isBlank()) ? "orderDate" : sortBy;
         Sort sort = "asc".equalsIgnoreCase(sortDir)
                 ? Sort.by(safeSortBy).ascending()
                 : Sort.by(safeSortBy).descending();
