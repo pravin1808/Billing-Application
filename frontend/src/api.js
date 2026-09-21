@@ -20,8 +20,13 @@ async function handleResponse(res) {
 export const api = {
   // Products
   getProducts: () => fetch(`${API}/products`).then(handleResponse),
-  getProductsPaged: (page = 0, size = 10, sortBy = 'product_id', sortDir = 'asc') =>
-    fetch(`${API}/products/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`).then(handleResponse),
+  getProductsPaged: (page = 0, size = 10, sortBy = 'product_id', sortDir = 'asc', search = '') => {
+    let url = `${API}/products/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`;
+    if (search && search.trim()) {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+    return fetch(url).then(handleResponse);
+  },
   getProduct: (id) => fetch(`${API}/product/${id}`).then(handleResponse),
   addProduct: (data) => fetch(`${API}/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
   updateProduct: (id, data) => fetch(`${API}/product/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),

@@ -50,7 +50,7 @@ class PaginationTests {
         Page<Product> page = new PageImpl<>(products, Pageable.ofSize(2), 10);
         when(productRepo.findAll(any(Pageable.class))).thenReturn(page);
 
-        PageResponse<ProductResponse> response = productService.getProductsPaged(0, 2, "productId", "asc");
+        PageResponse<ProductResponse> response = productService.getProductsPaged(0, 2, "productId", "asc", null);
 
         assertNotNull(response);
         assertEquals(2, response.content().size());
@@ -59,6 +59,21 @@ class PaginationTests {
         assertEquals(10, response.totalElements());
         assertEquals(5, response.totalPages());
         assertFalse(response.isLast());
+        assertEquals("MRF ZLX", response.content().get(0).description());
+    }
+
+    @Test
+    void whenGetProductsPaged_withSearch_thenCallsSearchProducts() {
+        List<Product> products = List.of(
+                new Product("MRF ZLX", "165/80 R14", 4011, 28, 20, 1)
+        );
+        Page<Product> page = new PageImpl<>(products, Pageable.ofSize(1), 1);
+        when(productRepo.searchProducts(org.mockito.ArgumentMatchers.eq("MRF"), any(Pageable.class))).thenReturn(page);
+
+        PageResponse<ProductResponse> response = productService.getProductsPaged(0, 1, "productId", "asc", "MRF");
+
+        assertNotNull(response);
+        assertEquals(1, response.content().size());
         assertEquals("MRF ZLX", response.content().get(0).description());
     }
 

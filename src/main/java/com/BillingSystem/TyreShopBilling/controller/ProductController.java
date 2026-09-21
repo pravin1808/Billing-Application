@@ -28,8 +28,9 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "productId") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
-        return ResponseEntity.ok(productService.getProductsPaged(page, size, sortBy, sortDir));
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(productService.getProductsPaged(page, size, sortBy, sortDir, search));
     }
 
     @GetMapping("/product/{productId}")

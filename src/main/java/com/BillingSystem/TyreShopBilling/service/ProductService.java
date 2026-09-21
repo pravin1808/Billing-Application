@@ -42,7 +42,7 @@ public class ProductService {
         return productResponseList;
     }
 
-    public PageResponse<ProductResponse> getProductsPaged(int page, int size, String sortBy, String sortDir) {
+    public PageResponse<ProductResponse> getProductsPaged(int page, int size, String sortBy, String sortDir, String search) {
         String safeSortBy;
         if (sortBy == null || sortBy.isBlank() || "product_id".equalsIgnoreCase(sortBy) || "id".equalsIgnoreCase(sortBy)) {
             safeSortBy = "productId";
@@ -54,7 +54,13 @@ public class ProductService {
                 : Sort.by(safeSortBy).ascending();
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size), sort);
 
-        Page<Product> productPage = productRepo.findAll(pageable);
+        Page<Product> productPage;
+
+        if(search == null || search.isBlank()){
+            productPage = productRepo.findAll(pageable);
+        }else{
+            productPage = productRepo.searchProducts(search.trim(), pageable);
+        }
 
         Page<ProductResponse> responsePage = productPage.map(product -> new ProductResponse(
                 product.getProduct_id(),
