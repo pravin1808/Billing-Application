@@ -37,7 +37,10 @@ export default function Orders() {
   const [orderSearch, setOrderSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const [inventory, setInventory] = useState([]);
+  const [productSearchResults, setProductSearchResults] = useState([]);
+  const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
+  const [searchingProducts, setSearchingProducts] = useState(false);
+
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(emptyOrder);
   const [saving, setSaving] = useState(false);
@@ -56,6 +59,38 @@ export default function Orders() {
     return () => clearTimeout(timer);
   }, [orderSearch]);
 
+  // Debounce product search inside the Create Order modal
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedProductSearch(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Query backend search API for products whenever modal product search changes
+  useEffect(() => {
+    if (!modal) return;
+    if (!debouncedProductSearch) {
+      setProductSearchResults([]);
+      setSearchingProducts(false);
+      return;
+    }
+    setSearchingProducts(true);
+    api
+      .getProductsPaged(0, 15, 'productId', 'asc', debouncedProductSearch)
+      .then((res) => {
+        if (res && res.content) {
+          setProductSearchResults(res.content);
+        } else if (Array.isArray(res)) {
+          setProductSearchResults(res);
+        } else {
+          setProductSearchResults([]);
+        }
+      })
+      .catch(() => toast.error('Failed to search products'))
+      .finally(() => setSearchingProducts(false));
+  }, [debouncedProductSearch, modal]);
+
   const load = (targetPage = page, targetSize = pageSize, targetSearch = debouncedSearch) => {
     setLoadingOrders(true);
     api
@@ -73,11 +108,6 @@ export default function Orders() {
       })
       .catch(() => toast.error('Failed to load orders'))
       .finally(() => setLoadingOrders(false));
-
-    api
-      .getProducts()
-      .then(setInventory)
-      .catch(() => {});
   };
 
   useEffect(() => {
@@ -113,8 +143,8 @@ export default function Orders() {
   const openNewOrderModal = () => {
     setForm(emptyOrder);
     setSearchQuery('');
-    // Refresh inventory so stock is always up to date
-    api.getProducts().then(setInventory).catch(() => {});
+    setDebouncedProductSearch('');
+    setProductSearchResults([]);
     setModal(true);
   };
 
@@ -281,17 +311,7 @@ export default function Orders() {
     }
   };
 
-  // Only show products if user entered some text
-  const trimmedSearch = searchQuery.trim().toLowerCase();
-  const searchResults = trimmedSearch
-    ? inventory.filter((p) => {
-        return (
-          (p.description && p.description.toLowerCase().includes(trimmedSearch)) ||
-          (p.size && p.size.toLowerCase().includes(trimmedSearch)) ||
-          String(p.hsnNumber || '').includes(trimmedSearch)
-        );
-      })
-    : [];
+  const trimmedSearch = searchQuery.trim();
 
   return (
     <>
@@ -610,9 +630,9 @@ export default function Orders() {
                         <Search size={15} style={{ color: 'var(--accent)' }} />
                         Search Available Tyres
                       </h3>
-                      {trimmedSearch && (
+                      {trimmedSearch && !searchingProducts && (
                         <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                          Found {searchResults.length} {searchResults.length === 1 ? 'match' : 'matches'}
+                          Found {productSearchResults.length} {productSearchResults.length === 1 ? 'match' : 'matches'}
                         </span>
                       )}
                     </div>
@@ -623,6 +643,12 @@ export default function Orders() {
                         placeholder="Search tyres by brand, size, or model (e.g., 195, CEAT, MRF)..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            setDebouncedProductSearch(searchQuery.trim());
+                          }
+                        }}
                         style={{ padding: '8px 12px 8px 34px', fontSize: 13.5 }}
                       />
                       <Search
@@ -639,7 +665,11 @@ export default function Orders() {
                       {searchQuery && (
                         <button
                           type="button"
-                          onClick={() => setSearchQuery('')}
+                          onClick={() => {
+                            setSearchQuery('');
+                            setDebouncedProductSearch('');
+                            setProductSearchResults([]);
+                          }}
                           style={{
                             position: 'absolute',
                             right: 10,
@@ -657,19 +687,34 @@ export default function Orders() {
                     </div>
 
                     {/* Don't show products when search query is empty */}
-                    {!trimmedSearch ? (
+                    {searchingProducts ? (
+                      <div className="search-hint" style={{ marginTop: 10 }}>
+                        <div
+                          className="spin"
+                          style={{
+                            display: 'inline-block',
+                            width: 13,
+                            height: 13,
+                            border: '2px solid var(--accent)',
+                            borderTopColor: 'transparent',
+                            borderRadius: '50%',
+                          }}
+                        />
+                        <span>Searching available tyres in inventory...</span>
+                      </div>
+                    ) : !trimmedSearch ? (
                       <div className="search-hint" style={{ marginTop: 10 }}>
                         <Search size={14} />
                         <span>Type any tyre brand or size above to search available stock</span>
                       </div>
-                    ) : searchResults.length === 0 ? (
+                    ) : productSearchResults.length === 0 ? (
                       <div className="search-hint" style={{ marginTop: 10 }}>
                         <AlertCircle size={14} style={{ color: 'var(--accent)' }} />
                         <span>No tyres in stock matching "{searchQuery}"</span>
                       </div>
                     ) : (
                       <div className="search-results-list">
-                        {searchResults.map((p) => {
+                        {productSearchResults.map((p) => {
                           const isLow = p.quantity <= 5;
                           const isOut = p.quantity <= 0;
                           return (
