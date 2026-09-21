@@ -6,6 +6,8 @@ import com.BillingSystem.TyreShopBilling.repository.InvoicePathRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class InvoicePathService {
 
@@ -26,12 +28,18 @@ public class InvoicePathService {
     }
 
     public void changeInvoicePathFolder(String newPath) {
-        InvoicePath invoicePath = invoicePathRepo.findById(1)
-                .orElseThrow(() -> new InvalidRequestException(
-                        "Invoice path configuration not found. Please initialise it first by placing an order."
-                ));
-        invoicePath.setFolder(newPath);
-        invoicePathRepo.save(invoicePath);
+        Optional<InvoicePath> invoice = invoicePathRepo.findById(1);
+        if(invoice.isPresent()){
+            InvoicePath invoicePath = invoice.get();
+            invoicePath.setFolder(newPath);
+            invoicePathRepo.save(invoicePath);
+            return;
+        }
+        InvoicePath newInvoicePath = new InvoicePath(
+                1,
+                newPath
+        );
+        invoicePathRepo.save(newInvoicePath);
     }
 
     @Autowired
