@@ -18,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class OrderService {
@@ -113,6 +115,7 @@ public class OrderService {
         );
     }
 
+    @Transactional
     public OrdersResponse addNewOrder(OrdersRequest newOrderReq) {
         Orders newOrder = new Orders();
         newOrder.setCustomerName(newOrderReq.customerName());
@@ -121,7 +124,6 @@ public class OrderService {
         newOrder.setOrderDate(LocalDateTime.now());
 
         invoiceNumberService.isEmpty();
-        String folder = invoicePathService.isEmpty();
 
         newOrder.setInvoiceNumber(invoiceNumberService.getCurrentInvoiceNumber());
 
@@ -158,41 +160,52 @@ public class OrderService {
 
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(addedOrder);
 
+        return new OrdersResponse(
+                addedOrder.getOrderId(),
+                addedOrder.getCustomerName(),
+                addedOrder.getCustomerMobileNumber(),
+                addedOrder.getGstInNumber(),
+                addedOrder.getInvoiceNumber(),
+                null,
+                addedOrder.getOrderDate(),
+                addedOrder.getTotalAmount(),
+                addedOrder.getPaymentMethod(),
+                orderedProductResponses
+        );
+    }
+
+    public String generateInvoicePDF(OrdersResponse ordersResponse){
+        String folder = invoicePathService.isEmpty();
+        String pdfPath = null;
         try {
-            String pdfPath = invoiceGenerator.invoiceGenerator(new OrdersResponse(
-                    addedOrder.getOrderId(),
-                    addedOrder.getCustomerName(),
-                    addedOrder.getCustomerMobileNumber(),
-                    addedOrder.getGstInNumber(),
-                    addedOrder.getInvoiceNumber(),
-                    null,
-                    addedOrder.getOrderDate(),
-                    addedOrder.getTotalAmount(),
-                    addedOrder.getPaymentMethod(),
-                    orderedProductResponses
-            ), folder);
-
-            addedOrder.setInvoicePath(pdfPath);
-            orderRepo.save(addedOrder);
-
-            return new OrdersResponse(
-                    addedOrder.getOrderId(),
-                    addedOrder.getCustomerName(),
-                    addedOrder.getCustomerMobileNumber(),
-                    addedOrder.getGstInNumber(),
-                    addedOrder.getInvoiceNumber(),
-                    pdfPath,
-                    addedOrder.getOrderDate(),
-                    addedOrder.getTotalAmount(),
-                    addedOrder.getPaymentMethod(),
-                    orderedProductResponses
-            );
+            pdfPath = invoiceGenerator.invoiceGenerator(ordersResponse, folder);
         } catch (Exception e) {
             throw new InvoiceGenerationException(
-                    "Failed to generate invoice for order #" + addedOrder.getInvoiceNumber()
+                    "Failed to generate invoice for order #" + ordersResponse.invoiceNumber()
                             + ". The order was saved but the invoice could not be created.", e
             );
         }
+        return pdfPath;
+    }
+
+    public OrdersResponse savePDFPath(Long orderId, String pdfPath){
+        Orders order = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        order.setInvoicePath(pdfPath);
+        Orders savedOrder = orderRepo.save(order);
+        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(savedOrder);
+        return new OrdersResponse(
+                savedOrder.getOrderId(),
+                savedOrder.getCustomerName(),
+                savedOrder.getCustomerMobileNumber(),
+                savedOrder.getGstInNumber(),
+                savedOrder.getInvoiceNumber(),
+                savedOrder.getInvoicePath(),
+                savedOrder.getOrderDate(),
+                savedOrder.getTotalAmount(),
+                savedOrder.getPaymentMethod(),
+                orderedProductResponses
+        );
     }
 
     public OrdersResponse updateOrder(long orderId, OrdersRequest updatedOrderReq) {

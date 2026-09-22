@@ -1,5 +1,6 @@
 package com.BillingSystem.TyreShopBilling.controller;
 
+import com.BillingSystem.TyreShopBilling.exception.InvoiceGenerationException;
 import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
@@ -42,7 +43,18 @@ public class OrderController {
 
     @PostMapping("/order")
     public ResponseEntity<OrdersResponse> addOrder(@Valid @RequestBody OrdersRequest newOrderRequest) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.addNewOrder(newOrderRequest));
+        OrdersResponse addedOrdersResponse = orderService.addNewOrder(newOrderRequest);
+        String pdfPath = orderService.generateInvoicePDF(addedOrdersResponse);
+        OrdersResponse savedOrdersResponse = orderService.savePDFPath(addedOrdersResponse.orderId(), pdfPath);
+        try {
+            orderService.printOrderInvoice(savedOrdersResponse.orderId());
+        } catch (Exception e) {
+            throw new InvoiceGenerationException(
+                    "Order #" + savedOrdersResponse.orderId()
+                            + " was saved and PDF created, but sending to printer failed: " + e.getMessage(), e
+            );
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedOrdersResponse);
     }
 
     @PutMapping("/order/{orderId}")

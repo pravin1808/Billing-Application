@@ -275,7 +275,32 @@ export default function Orders() {
         setViewingInvoiceId(createdOrder.orderId);
       }
     } catch (e) {
-      toast.error(e?.message ?? 'Failed to place order');
+      const msg = e?.message || 'Failed to place order';
+
+      // Check if order and PDF were saved successfully before the printer failure
+      if (msg.includes('was saved and PDF created') || msg.includes('sending to printer failed')) {
+        toast.success('Order placed & invoice generated!');
+        const errorDetail = msg.includes('sending to printer failed: ')
+          ? msg.split('sending to printer failed: ')[1]
+          : 'Printer offline';
+        toast.error(`Printer alert: ${errorDetail}. You can print from the preview.`, { duration: 6000 });
+
+        setModal(false);
+        setForm(emptyOrder);
+        if (page !== 0) {
+          setPage(0);
+        } else {
+          load(0, pageSize, debouncedSearch);
+        }
+
+        // Open invoice viewer for the newly saved order
+        const orderIdMatch = msg.match(/Order #(\d+)/);
+        if (orderIdMatch) {
+          setViewingInvoiceId(+orderIdMatch[1]);
+        }
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSaving(false);
     }

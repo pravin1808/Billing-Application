@@ -463,8 +463,6 @@ public class InvoiceGenerator {
 
         document.close();
 
-        printInvoice(String.valueOf(file));
-
         return file.getAbsolutePath();
     }
 
