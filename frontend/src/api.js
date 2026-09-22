@@ -52,4 +52,8 @@ export const api = {
   updateInvoiceNumber: (num) => fetch(`${API}/order/invoice/${num}`, { method: 'PUT' }).then(handleResponse),
   updateInvoicePath: (path) => fetch(`${API}/order/invoicePath`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invoicePath: path }) }).then(handleResponse),
   selectFolderFromDisk: (current) => fetch(`/api/select-folder?current=${encodeURIComponent(current || '')}`).then(handleResponse),
+
+  // Sales
+  getMonthlySales: (year, month) => fetch(`${API}/sales/month?year=${year}&month=${month}`).then(handleResponse),
 };
+

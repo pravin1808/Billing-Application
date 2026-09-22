@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { LayoutDashboard, Package, ShoppingCart, FileText, Settings } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, TrendingUp, Settings } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
+import Sales from './pages/Sales';
 import InvoiceViewer from './pages/InvoiceViewer';
 import SettingsPage from './pages/Settings';
 import './index.css';
@@ -12,6 +13,7 @@ const navItems = [
   { to: '/',          icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/products',  icon: Package,         label: 'Products'  },
   { to: '/orders',    icon: ShoppingCart,    label: 'Orders'    },
+  { to: '/sales',     icon: TrendingUp,      label: 'Sales'     },
   { to: '/settings',  icon: Settings,        label: 'Settings'  },
 ];
 
@@ -19,6 +21,7 @@ const pageTitles = {
   '/':          { title: 'Dashboard',    sub: 'Overview of your shop' },
   '/products':  { title: 'Products',     sub: 'Manage your tyre inventory' },
   '/orders':    { title: 'Orders',       sub: 'Billing & invoices' },
+  '/sales':     { title: 'Sales Analytics', sub: 'Performance & 12-month revenue trend' },
   '/settings':  { title: 'Settings',     sub: 'Configure invoice preferences' },
 };
 
@@ -60,6 +63,7 @@ function Shell() {
             <Route path="/"               element={<Dashboard />} />
             <Route path="/products"       element={<Products />} />
             <Route path="/orders"         element={<Orders />} />
+            <Route path="/sales"          element={<Sales />} />
             <Route path="/invoice/:id"    element={<InvoiceViewer />} />
             <Route path="/settings"       element={<SettingsPage />} />
           </Routes>

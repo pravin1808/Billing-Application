@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { Package, ShoppingCart, IndianRupee, TrendingUp } from 'lucide-react';
+import SalesGraph from '../components/SalesGraph';
 
 export default function Dashboard() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'products'
+  const [activeTab, setActiveTab] = useState('sales'); // 'sales' | 'orders' | 'products'
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,11 +22,24 @@ export default function Dashboard() {
   return (
     <>
       <div className="stats-grid">
-        <div className="stat-card">
+        <div
+          className="stat-card"
+          onClick={() => setActiveTab('sales')}
+          style={{
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            borderColor: activeTab === 'sales' ? 'var(--accent)' : 'var(--border)',
+            background: activeTab === 'sales' ? 'rgba(249,115,22,0.08)' : 'var(--surface)',
+            boxShadow: activeTab === 'sales' ? '0 0 12px rgba(249,115,22,0.18)' : 'none',
+          }}
+          title="Click to view Sales linear graph below"
+        >
           <div className="stat-icon orange"><IndianRupee size={20} /></div>
           <div>
             <div className="stat-value">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-            <div className="stat-label">Total Revenue</div>
+            <div className="stat-label">
+              Total Revenue {activeTab === 'sales' && <span style={{ color: 'var(--accent)', fontSize: 11 }}>• Active</span>}
+            </div>
           </div>
         </div>
 
@@ -36,8 +50,8 @@ export default function Dashboard() {
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             borderColor: activeTab === 'orders' ? 'var(--accent)' : 'var(--border)',
-            background: activeTab === 'orders' ? 'rgba(249,115,22,0.06)' : 'var(--surface)',
-            boxShadow: activeTab === 'orders' ? '0 0 12px rgba(249,115,22,0.15)' : 'none',
+            background: activeTab === 'orders' ? 'rgba(249,115,22,0.08)' : 'var(--surface)',
+            boxShadow: activeTab === 'orders' ? '0 0 12px rgba(249,115,22,0.18)' : 'none',
           }}
           title="Click to view recent orders below"
         >
@@ -57,8 +71,8 @@ export default function Dashboard() {
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             borderColor: activeTab === 'products' ? 'var(--accent)' : 'var(--border)',
-            background: activeTab === 'products' ? 'rgba(249,115,22,0.06)' : 'var(--surface)',
-            boxShadow: activeTab === 'products' ? '0 0 12px rgba(249,115,22,0.15)' : 'none',
+            background: activeTab === 'products' ? 'rgba(249,115,22,0.08)' : 'var(--surface)',
+            boxShadow: activeTab === 'products' ? '0 0 12px rgba(249,115,22,0.18)' : 'none',
           }}
           title="Click to view recent products below"
         >
@@ -71,7 +85,16 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="stat-card">
+        <div
+          className="stat-card"
+          onClick={() => setActiveTab('sales')}
+          style={{
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            borderColor: activeTab === 'sales' ? 'var(--accent)' : 'var(--border)',
+          }}
+          title="Click to view Sales linear graph below"
+        >
           <div className="stat-icon orange"><TrendingUp size={20} /></div>
           <div>
             <div className="stat-value">
@@ -83,22 +106,72 @@ export default function Dashboard() {
       </div>
 
       <div className="card">
-        <div className="section-header">
+        <div className="section-header" style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2>{activeTab === 'orders' ? 'Recent Orders' : 'All Products'}</h2>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              {activeTab === 'orders' ? '(Latest 10)' : `(${allProducts.length} Total)`}
-            </span>
+            <div style={{
+              display: 'inline-flex',
+              background: 'var(--surface2)',
+              padding: 3,
+              borderRadius: 8,
+              border: '1px solid var(--border)'
+            }}>
+              <button
+                className="btn btn-sm"
+                style={{
+                  background: activeTab === 'sales' ? 'var(--accent)' : 'transparent',
+                  color: activeTab === 'sales' ? '#fff' : 'var(--muted)',
+                  border: 'none',
+                  padding: '6px 14px',
+                  fontWeight: activeTab === 'sales' ? 600 : 400,
+                  transition: 'all 0.15s ease'
+                }}
+                onClick={() => setActiveTab('sales')}
+              >
+                Sales Linear Graph
+              </button>
+              <button
+                className="btn btn-sm"
+                style={{
+                  background: activeTab === 'orders' ? 'var(--accent)' : 'transparent',
+                  color: activeTab === 'orders' ? '#fff' : 'var(--muted)',
+                  border: 'none',
+                  padding: '6px 14px',
+                  fontWeight: activeTab === 'orders' ? 600 : 400,
+                  transition: 'all 0.15s ease'
+                }}
+                onClick={() => setActiveTab('orders')}
+              >
+                Recent Orders
+              </button>
+              <button
+                className="btn btn-sm"
+                style={{
+                  background: activeTab === 'products' ? 'var(--accent)' : 'transparent',
+                  color: activeTab === 'products' ? '#fff' : 'var(--muted)',
+                  border: 'none',
+                  padding: '6px 14px',
+                  fontWeight: activeTab === 'products' ? 600 : 400,
+                  transition: 'all 0.15s ease'
+                }}
+                onClick={() => setActiveTab('products')}
+              >
+                All Products
+              </button>
+            </div>
           </div>
+
           <button
             className="btn btn-ghost btn-sm"
-            onClick={() => navigate(activeTab === 'orders' ? '/orders' : '/products')}
+            onClick={() => navigate(activeTab === 'sales' ? '/sales' : activeTab === 'orders' ? '/orders' : '/products')}
           >
-            {activeTab === 'orders' ? 'View All Orders' : 'Manage Products'}
+            {activeTab === 'sales' ? 'Dedicated Sales Page' : activeTab === 'orders' ? 'View All Orders' : 'Manage Products'}
           </button>
         </div>
 
-        <div className="table-wrap">
+        {activeTab === 'sales' ? (
+          <SalesGraph />
+        ) : (
+          <div className="table-wrap">
           {activeTab === 'orders' ? (
             recentOrders.length === 0 ? (
               <div className="empty-state"><ShoppingCart /><p>No orders yet</p></div>
@@ -163,6 +236,7 @@ export default function Dashboard() {
             )
           )}
         </div>
+      )}
       </div>
     </>
   );
