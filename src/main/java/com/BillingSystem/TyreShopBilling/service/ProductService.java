@@ -1,12 +1,14 @@
 package com.BillingSystem.TyreShopBilling.service;
 
 import com.BillingSystem.TyreShopBilling.exception.InsufficientStockException;
+import com.BillingSystem.TyreShopBilling.exception.InvalidRequestException;
 import com.BillingSystem.TyreShopBilling.exception.ResourceAlreadyExistsException;
 import com.BillingSystem.TyreShopBilling.exception.ResourceNotFoundException;
 import com.BillingSystem.TyreShopBilling.model.Product;
 import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.ProductResponse;
+import com.BillingSystem.TyreShopBilling.repository.OrderedProductRepo;
 import com.BillingSystem.TyreShopBilling.repository.ProductRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -23,6 +25,7 @@ import java.util.Optional;
 public class ProductService {
 
     private ProductRepo productRepo;
+    private OrderedProductRepo orderedProductRepo;
 
     public List<ProductResponse> getAllProducts(){
         List<Product> productList = productRepo.findAll();
@@ -176,9 +179,25 @@ public class ProductService {
     }
 
     public boolean deleteProductById(int productId) {
-        if (!productRepo.existsById(productId)) {
-            throw new ResourceNotFoundException("Product", "id", productId);
+        Product product = productRepo.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+
+        // Condition 1: Fast in-memory check if physical stock remains
+        if (product.getQuantity() != null && product.getQuantity() > 0) {
+            throw new InvalidRequestException(
+                    "Cannot delete product '" + product.getDescription() + " (" + product.getSize() + ")' " +
+                    "because it still has " + product.getQuantity() + " units in stock. Reduce stock to 0 first."
+            );
         }
+
+        // Condition 2: Check if this product was ever sold in any order
+        if (orderedProductRepo != null && orderedProductRepo.existsByProduct_ProductId(productId)) {
+            throw new InvalidRequestException(
+                    "Cannot delete product '" + product.getDescription() + " (" + product.getSize() + ")' " +
+                    "because it is recorded in existing invoices. Products with sales history cannot be deleted."
+            );
+        }
+
         productRepo.deleteById(productId);
         return true;
     }
@@ -186,6 +205,11 @@ public class ProductService {
     @Autowired
     public void setProductRepo(ProductRepo productRepo){
         this.productRepo = productRepo;
+    }
+
+    @Autowired
+    public void setOrderedProductRepo(OrderedProductRepo orderedProductRepo) {
+        this.orderedProductRepo = orderedProductRepo;
     }
 
 }
