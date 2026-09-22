@@ -1,18 +1,17 @@
 package com.BillingSystem.TyreShopBilling.service;
 
 import com.BillingSystem.TyreShopBilling.InvoiceGenerator;
+import com.BillingSystem.TyreShopBilling.exception.InsufficientStockException;
 import com.BillingSystem.TyreShopBilling.exception.InvoiceGenerationException;
 import com.BillingSystem.TyreShopBilling.exception.ResourceNotFoundException;
 import com.BillingSystem.TyreShopBilling.model.OrderedProducts;
 import com.BillingSystem.TyreShopBilling.model.Orders;
-import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
-import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductRequest;
-import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductResponse;
-import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
-import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
+import com.BillingSystem.TyreShopBilling.model.dto.*;
 import com.BillingSystem.TyreShopBilling.model.Product;
 import com.BillingSystem.TyreShopBilling.repository.OrderRepo;
+import com.BillingSystem.TyreShopBilling.repository.OrderedProductRepo;
 import com.BillingSystem.TyreShopBilling.repository.ProductRepo;
+import jakarta.validation.Valid;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -38,6 +37,7 @@ public class OrderService {
     private InvoiceGenerator invoiceGenerator;
     private ProductService productService;
     private ProductRepo productRepo;
+    private OrderedProductRepo orderedProductRepo;
 
     public List<OrdersResponse> getAllOrders() {
         List<Orders> allOrders = orderRepo.findAll(Sort.by(Sort.Direction.ASC, "orderId"));
@@ -224,11 +224,25 @@ public class OrderService {
         );
     }
 
-    public OrdersResponse updateOrder(long orderId, OrdersRequest updatedOrderReq) {
+    public OrdersResponse updateInvoice(OrdersResponse ordersResponse) {
+        String pdfPath = generateInvoicePDF(ordersResponse);
+        return savePDFPath(ordersResponse.orderId(), pdfPath);
+    }
+
+    @Transactional
+    public OrdersResponse updateOrder(long orderId, @Valid OrderProductsUpdateRequest updatedOrderReq) {
         Orders existingOrder = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
-
+        for (OrderedProducts oldItem : existingOrder.getOrderedProducts()) {
+            if (oldItem.getProduct() != null) {
+                productService.restoreStock(oldItem.getProduct(), oldItem.getQuantitySell());
+            } else if (oldItem.getDescription() != null && oldItem.getSize() != null && productRepo != null) {
+                productRepo.findByDescriptionAndSize(oldItem.getDescription(), oldItem.getSize())
+                        .ifPresent(p -> productService.restoreStock(p, oldItem.getQuantitySell()));
+            }
+        }
+        existingOrder.getOrderedProducts().clear();
 
         float totalAmount = 0f;
 
@@ -239,46 +253,80 @@ public class OrderService {
         }
         existingOrder.setTotalAmount(totalAmount);
 
-        Orders savedOrder = orderRepo.save(existingOrder);
+        List<OrderedProducts> orderedProducts = existingOrder.getOrderedProducts();
 
+        for (OrderedProducts orderProduct : orderedProducts) {
+            if (orderProduct.getProduct() != null) {
+                productService.validateStock(
+                        orderProduct.getProduct(),
+                        orderProduct.getQuantitySell()
+                );
+            } else {
+                productService.validateStock(
+                        orderProduct.getDescription(),
+                        orderProduct.getSize(),
+                        orderProduct.getQuantitySell()
+                );
+            }
+        }
+
+        for (OrderedProducts orderProduct : orderedProducts) {
+            if (orderProduct.getProduct() != null) {
+                productService.updateStock(
+                        orderProduct.getProduct(),
+                        orderProduct.getQuantitySell()
+                );
+            } else {
+                productService.updateStock(
+                        orderProduct.getDescription(),
+                        orderProduct.getSize(),
+                        orderProduct.getQuantitySell()
+                );
+            }
+        }
+
+        Orders savedOrder = orderRepo.save(existingOrder);
         List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(savedOrder);
 
-        String folder = invoicePathService.isEmpty();
+        return new OrdersResponse(
+                savedOrder.getOrderId(),
+                savedOrder.getCustomerName(),
+                savedOrder.getCustomerMobileNumber(),
+                savedOrder.getGstInNumber(),
+                savedOrder.getInvoiceNumber(),
+                savedOrder.getInvoicePath(),
+                savedOrder.getOrderDate(),
+                savedOrder.getTotalAmount(),
+                savedOrder.getPaymentMethod(),
+                orderedProductResponses
+        );
+    }
 
-        try {
-            String pdfPath = invoiceGenerator.invoiceGenerator(new OrdersResponse(
-                    savedOrder.getOrderId(),
-                    savedOrder.getCustomerName(),
-                    savedOrder.getCustomerMobileNumber(),
-                    savedOrder.getGstInNumber(),
-                    savedOrder.getInvoiceNumber(),
-                    null,
-                    savedOrder.getOrderDate(),
-                    savedOrder.getTotalAmount(),
-                    savedOrder.getPaymentMethod(),
-                    orderedProductResponses
-            ), folder);
+    @Transactional
+    public OrdersResponse updateOrderCustomerDetails(long orderId, @Valid OrderCustomerUpdateRequest req) {
+        Orders existingOrder = orderRepo.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
-            savedOrder.setInvoicePath(pdfPath);
-            orderRepo.save(savedOrder);
+        existingOrder.setCustomerName(req.customerName());
+        existingOrder.setCustomerMobileNumber(req.customerMobileNumber());
+        existingOrder.setGstInNumber(req.gstInNumber());
+        existingOrder.setPaymentMethod(req.paymentMethod());
 
-            return new OrdersResponse(
-                    savedOrder.getOrderId(),
-                    savedOrder.getCustomerName(),
-                    savedOrder.getCustomerMobileNumber(),
-                    savedOrder.getGstInNumber(),
-                    savedOrder.getInvoiceNumber(),
-                    pdfPath,
-                    savedOrder.getOrderDate(),
-                    savedOrder.getTotalAmount(),
-                    savedOrder.getPaymentMethod(),
-                    orderedProductResponses
-            );
-        } catch (Exception e) {
-            throw new InvoiceGenerationException(
-                    "Order #" + savedOrder.getOrderId() + " was updated but the invoice could not be regenerated.", e
-            );
-        }
+        Orders savedOrder = orderRepo.save(existingOrder);
+        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(savedOrder);
+
+        return new OrdersResponse(
+                savedOrder.getOrderId(),
+                savedOrder.getCustomerName(),
+                savedOrder.getCustomerMobileNumber(),
+                savedOrder.getGstInNumber(),
+                savedOrder.getInvoiceNumber(),
+                savedOrder.getInvoicePath(),
+                savedOrder.getOrderDate(),
+                savedOrder.getTotalAmount(),
+                savedOrder.getPaymentMethod(),
+                orderedProductResponses
+        );
     }
 
     public void deleteOrderById(long orderId) {
@@ -347,7 +395,8 @@ public class OrderService {
         OrderedProducts orderedProduct = new OrderedProducts();
 
         if (item.productId() != null && productRepo != null) {
-            Product product = productRepo.findById(item.productId()).orElse(null);
+            Product product = productRepo.findById(item.productId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.productId()));
             orderedProduct.setProduct(product);
         } else if (item.description() != null && item.size() != null && productRepo != null) {
             productRepo.findByDescriptionAndSize(item.description(), item.size())
@@ -395,5 +444,10 @@ public class OrderService {
     @Autowired
     public void setProductService(ProductService productService) {
         this.productService = productService;
+    }
+
+    @Autowired
+    public void setOrderedProductRepo(OrderedProductRepo orderedProductRepo){
+        this.orderedProductRepo = orderedProductRepo;
     }
 }

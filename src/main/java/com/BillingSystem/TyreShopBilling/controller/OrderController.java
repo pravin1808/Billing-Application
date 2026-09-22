@@ -1,8 +1,10 @@
 package com.BillingSystem.TyreShopBilling.controller;
 
 import com.BillingSystem.TyreShopBilling.exception.InvoiceGenerationException;
-import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
+import com.BillingSystem.TyreShopBilling.model.dto.OrderCustomerUpdateRequest;
+import com.BillingSystem.TyreShopBilling.model.dto.OrderProductsUpdateRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
+import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
 import com.BillingSystem.TyreShopBilling.service.OrderService;
 import jakarta.validation.Valid;
@@ -60,8 +62,19 @@ public class OrderController {
     @PutMapping("/order/{orderId}")
     public ResponseEntity<OrdersResponse> updateOrder(
             @PathVariable long orderId,
-            @Valid @RequestBody OrdersRequest updatedOrder) {
-        return ResponseEntity.ok(orderService.updateOrder(orderId, updatedOrder));
+            @Valid @RequestBody OrderProductsUpdateRequest updatedOrder) {
+        OrdersResponse updatedOrdersResponse = orderService.updateOrder(orderId, updatedOrder);
+        OrdersResponse savedOrdersResponse = orderService.updateInvoice(updatedOrdersResponse);
+        return ResponseEntity.ok(savedOrdersResponse);
+    }
+
+    @PutMapping("/order/{orderId}/customer")
+    public ResponseEntity<OrdersResponse> updateOrderCustomer(
+            @PathVariable long orderId,
+            @Valid @RequestBody OrderCustomerUpdateRequest customerUpdateRequest) {
+        OrdersResponse updatedOrdersResponse = orderService.updateOrderCustomerDetails(orderId, customerUpdateRequest);
+        OrdersResponse savedOrdersResponse = orderService.updateInvoice(updatedOrdersResponse);
+        return ResponseEntity.ok(savedOrdersResponse);
     }
 
     @DeleteMapping("/order/{orderId}")

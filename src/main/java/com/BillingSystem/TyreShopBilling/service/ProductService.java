@@ -178,6 +178,15 @@ public class ProductService {
         productRepo.save(product);
     }
 
+    public void restoreStock(Product product, int quantityToRestore) {
+        if (product == null) {
+            return;
+        }
+        Product currentProduct = productRepo.findById(product.getProduct_id()).orElse(product);
+        currentProduct.setQuantity(currentProduct.getQuantity() + quantityToRestore);
+        productRepo.save(currentProduct);
+    }
+
     public boolean deleteProductById(int productId) {
         Product product = productRepo.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
