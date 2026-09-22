@@ -1,21 +1,47 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
 import { FolderOpen, Hash, CheckCircle } from 'lucide-react';
 
 export default function Settings() {
   const [invoicePath, setInvoicePath] = useState(() => {
-    return localStorage.getItem('tyreshop_invoice_path') || 'C:/Invoices Demo';
+    return localStorage.getItem('tyreshop_invoice_path') || '';
   });
   const [currentPath, setCurrentPath] = useState(() => {
-    return localStorage.getItem('tyreshop_invoice_path') || 'C:/Invoices Demo';
+    return localStorage.getItem('tyreshop_invoice_path') || '';
   });
+  const [loadingPath, setLoadingPath] = useState(true);
   const [invoiceNum, setInvoiceNum] = useState('');
   const [browsing, setBrowsing] = useState(false);
   const [savingPath, setSavingPath] = useState(false);
   const [savingNum, setSavingNum] = useState(false);
 
   const fileInputRef = useRef(null);
+
+  // Fetch actual active folder from PostgreSQL database on mount
+  useEffect(() => {
+    let isMounted = true;
+    api.getInvoicePath()
+      .then((res) => {
+        if (!isMounted) return;
+        const path = (typeof res === 'object' && res?.invoicePath) ? res.invoicePath : res;
+        if (path && typeof path === 'string') {
+          setCurrentPath(path);
+          setInvoicePath(path);
+          localStorage.setItem('tyreshop_invoice_path', path);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch invoice path from backend:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingPath(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Direct folder choosing from disk with exact drive letter and full path
   const handleChooseFolder = async () => {
@@ -141,7 +167,7 @@ export default function Settings() {
           marginBottom: 16
         }}>
           <CheckCircle size={16} />
-          <span>Active Folder: <strong>{currentPath}</strong></span>
+          <span>Active Folder: <strong>{currentPath || (loadingPath ? 'Loading...' : 'Not configured')}</strong></span>
         </div>
 
         <div className="form-group" style={{ marginBottom: 14 }}>
@@ -150,7 +176,7 @@ export default function Settings() {
             <input
               value={invoicePath}
               onChange={e => setInvoicePath(e.target.value)}
-              placeholder="e.g. C:/Invoices Demo or D:/Invoices"
+              placeholder={loadingPath ? "Loading active path..." : "e.g. C:/Invoices or D:/Invoices"}
               style={{ flex: 1 }}
             />
             <button

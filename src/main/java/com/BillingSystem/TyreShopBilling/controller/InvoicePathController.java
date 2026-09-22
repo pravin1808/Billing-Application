@@ -13,6 +13,11 @@ public class InvoicePathController {
 
     private InvoicePathService invoicePathService;
 
+    @GetMapping("/order/invoicePath")
+    public ResponseEntity<InvoicePathRequest> getInvoicePath() {
+        return ResponseEntity.ok(new InvoicePathRequest(invoicePathService.getInvoicePath()));
+    }
+
     @PutMapping("/order/invoicePath")
     public ResponseEntity<String> updateInvoicePath(@Valid @RequestBody InvoicePathRequest newInvoicePath) {
         invoicePathService.changeInvoicePathFolder(newInvoicePath.invoicePath());

@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -81,5 +82,14 @@ class ControllerValidationTests {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Invoice folder path is required")));
+    }
+
+    @Test
+    void whenGetInvoicePath_thenReturnsCurrentPath() throws Exception {
+        org.mockito.Mockito.when(invoicePathService.getInvoicePath()).thenReturn("C:/SavedInvoices");
+
+        mockMvcPath.perform(get("/api/order/invoicePath"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.invoicePath").value("C:/SavedInvoices"));
     }
 }

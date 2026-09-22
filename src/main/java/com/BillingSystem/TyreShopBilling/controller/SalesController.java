@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+
 @RestController
 @RequestMapping("/api/sales")
 public class SalesController {
@@ -19,6 +21,11 @@ public class SalesController {
             @RequestParam int year,
             @RequestParam int month){
         return ResponseEntity.ok(salesService.getLast12MonthsSales(year, month));
+    }
+
+    @GetMapping("/day")
+    public ResponseEntity<?> getSalesPerDay(@RequestParam LocalDate date){
+        return ResponseEntity.ok(salesService.getLast7DaysSales(date));
     }
 
     @Autowired

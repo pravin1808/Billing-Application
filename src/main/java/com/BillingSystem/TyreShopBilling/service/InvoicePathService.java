@@ -14,17 +14,17 @@ public class InvoicePathService {
     private InvoicePathRepo invoicePathRepo;
 
     public String isEmpty() {
-        if (invoicePathRepo.count() == 0) {
-            InvoicePath invoicePath = new InvoicePath(1, "C:/Invoices");
-            invoicePathRepo.save(invoicePath);
-            return invoicePath.getFolder();
-        } else {
-            InvoicePath invoicePath = invoicePathRepo.findById(1)
-                    .orElseThrow(() -> new InvalidRequestException(
-                            "Invoice path configuration is missing. Please set the invoice folder path via PUT /api/order/invoicePath."
-                    ));
-            return invoicePath.getFolder();
+        Optional<InvoicePath> invoice = invoicePathRepo.findById(1);
+        if (invoice.isPresent() && invoice.get().getFolder() != null && !invoice.get().getFolder().isBlank()) {
+            return invoice.get().getFolder();
         }
+        InvoicePath invoicePath = new InvoicePath(1, "C:/Invoices");
+        invoicePathRepo.save(invoicePath);
+        return invoicePath.getFolder();
+    }
+
+    public String getInvoicePath() {
+        return isEmpty();
     }
 
     public void changeInvoicePathFolder(String newPath) {

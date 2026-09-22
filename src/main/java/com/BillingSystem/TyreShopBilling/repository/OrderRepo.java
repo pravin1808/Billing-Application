@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -43,4 +44,21 @@ public interface OrderRepo extends JpaRepository<Orders, Long> {
             @Param("year") int year,
             @Param("month") int month
     );
+
+
+    @Query(value = """
+    SELECT
+        TO_CHAR(days.day, 'YYYY-MM-DD') AS date,
+        COALESCE(SUM(o.total_amount), 0) AS amount
+    FROM generate_series(
+        CAST(:date AS date) - INTERVAL '6 days',
+        CAST(:date AS date),
+        INTERVAL '1 day'
+    ) AS days(day)
+    LEFT JOIN orders o
+        ON DATE(o.order_date) = days.day
+    GROUP BY days.day
+    ORDER BY days.day
+    """, nativeQuery = true)
+    List<Object[]> getLast7DaysSales(@Param("date") LocalDate date);
 }
