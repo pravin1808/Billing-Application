@@ -10,7 +10,9 @@ import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrderedProductResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
+import com.BillingSystem.TyreShopBilling.model.Product;
 import com.BillingSystem.TyreShopBilling.repository.OrderRepo;
+import com.BillingSystem.TyreShopBilling.repository.ProductRepo;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -35,6 +37,7 @@ public class OrderService {
     private InvoicePathService invoicePathService;
     private InvoiceGenerator invoiceGenerator;
     private ProductService productService;
+    private ProductRepo productRepo;
 
     public List<OrdersResponse> getAllOrders() {
         List<Orders> allOrders = orderRepo.findAll(Sort.by(Sort.Direction.ASC, "orderId"));
@@ -140,19 +143,33 @@ public class OrderService {
         newOrder.setOrderedProducts(orderedProducts);
 
         for (OrderedProducts orderedProduct : orderedProducts) {
-            productService.validateStock(
-                    orderedProduct.getDescription(),
-                    orderedProduct.getSize(),
-                    orderedProduct.getQuantitySell()
-            );
+            if (orderedProduct.getProduct() != null) {
+                productService.validateStock(
+                        orderedProduct.getProduct(),
+                        orderedProduct.getQuantitySell()
+                );
+            } else {
+                productService.validateStock(
+                        orderedProduct.getDescription(),
+                        orderedProduct.getSize(),
+                        orderedProduct.getQuantitySell()
+                );
+            }
         }
 
         for (OrderedProducts orderedProduct : orderedProducts) {
-            productService.updateStock(
-                    orderedProduct.getDescription(),
-                    orderedProduct.getSize(),
-                    orderedProduct.getQuantitySell()
-            );
+            if (orderedProduct.getProduct() != null) {
+                productService.updateStock(
+                        orderedProduct.getProduct(),
+                        orderedProduct.getQuantitySell()
+                );
+            } else {
+                productService.updateStock(
+                        orderedProduct.getDescription(),
+                        orderedProduct.getSize(),
+                        orderedProduct.getQuantitySell()
+                );
+            }
         }
 
         Orders addedOrder = orderRepo.save(newOrder);
@@ -211,11 +228,7 @@ public class OrderService {
         Orders existingOrder = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
-        existingOrder.setCustomerName(updatedOrderReq.customerName());
-        existingOrder.setCustomerMobileNumber(updatedOrderReq.customerMobileNumber());
-        existingOrder.setGstInNumber(updatedOrderReq.gstInNumber());
-        existingOrder.setOrderDate(LocalDateTime.now());
-        existingOrder.getOrderedProducts().clear();
+
 
         float totalAmount = 0f;
 
@@ -316,6 +329,7 @@ public class OrderService {
         for (OrderedProducts product : order.getOrderedProducts()) {
             orderedProductResponses.add(new OrderedProductResponse(
                     product.getId(),
+                    product.getProductId(),
                     product.getDescription(),
                     product.getSize(),
                     product.getGst(),
@@ -329,8 +343,16 @@ public class OrderService {
         return orderedProductResponses;
     }
 
-    private static @NonNull OrderedProducts getOrderedProducts(OrderedProductRequest item, Orders order) {
+    private @NonNull OrderedProducts getOrderedProducts(OrderedProductRequest item, Orders order) {
         OrderedProducts orderedProduct = new OrderedProducts();
+
+        if (item.productId() != null && productRepo != null) {
+            Product product = productRepo.findById(item.productId()).orElse(null);
+            orderedProduct.setProduct(product);
+        } else if (item.description() != null && item.size() != null && productRepo != null) {
+            productRepo.findByDescriptionAndSize(item.description(), item.size())
+                    .ifPresent(orderedProduct::setProduct);
+        }
 
         orderedProduct.setDescription(item.description());
         orderedProduct.setSize(item.size());
@@ -348,6 +370,11 @@ public class OrderService {
     @Autowired
     public void setOrderRepo(OrderRepo newOrderRepo) {
         this.orderRepo = newOrderRepo;
+    }
+
+    @Autowired
+    public void setProductRepo(ProductRepo productRepo) {
+        this.productRepo = productRepo;
     }
 
     @Autowired

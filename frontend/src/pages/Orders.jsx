@@ -178,6 +178,7 @@ export default function Orders() {
 
       // Add as new item
       const newItem = {
+        productId: product.productId || product.product_id || null,
         description: product.description,
         size: product.size,
         gst: product.gst,
@@ -255,7 +256,9 @@ export default function Orders() {
         ...form,
         customerMobileNumber: +form.customerMobileNumber,
         orderedProducts: form.orderedProducts.map((p) => ({
-          ...p,
+          productId: p.productId ? +p.productId : null,
+          description: p.description,
+          size: p.size,
           gst: +p.gst,
           hsnNumber: +p.hsnNumber,
           gstPrice: +p.gstPrice,

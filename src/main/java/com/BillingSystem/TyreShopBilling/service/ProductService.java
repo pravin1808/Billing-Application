@@ -137,6 +137,15 @@ public class ProductService {
         );
     }
 
+    public void validateStock(Product product, int quantitySell) {
+        if (product == null) {
+            return;
+        }
+        if (product.getQuantity() < quantitySell) {
+            throw new InsufficientStockException(product.getDescription(), quantitySell, product.getQuantity());
+        }
+    }
+
     public void validateStock(String description, String size, int quantitySell) {
         Optional<Product> optionalProduct = productRepo.findByDescriptionAndSize(description, size);
         if (optionalProduct.isEmpty()) {
@@ -146,6 +155,14 @@ public class ProductService {
         if (product.getQuantity() < quantitySell) {
             throw new InsufficientStockException(product.getDescription(), quantitySell, product.getQuantity());
         }
+    }
+
+    public void updateStock(Product product, int quantitySell) {
+        if (product == null) {
+            return;
+        }
+        product.setQuantity(product.getQuantity() - quantitySell);
+        productRepo.save(product);
     }
 
     public void updateStock(String description, String size, int quantitySell) {

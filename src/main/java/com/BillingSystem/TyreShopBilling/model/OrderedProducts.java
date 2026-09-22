@@ -25,4 +25,11 @@ public class OrderedProducts {
     @ManyToOne(fetch = FetchType.LAZY)
     private Orders orders;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
+
+    public Integer getProductId() {
+        return product != null ? product.getProduct_id() : null;
+    }
 }

@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 
 public record OrderedProductRequest(
+        Integer productId,
+
         @NotBlank(message = "Ordered product description is required")
         String description,
 
@@ -25,4 +27,7 @@ public record OrderedProductRequest(
         @Min(value = 1, message = "Quantity to sell must be at least 1")
         int quantitySell
 ) {
+    public OrderedProductRequest(String description, String size, int gst, int hsnNumber, float gstPrice, int quantitySell) {
+        this(null, description, size, gst, hsnNumber, gstPrice, quantitySell);
+    }
 }
