@@ -37,6 +37,7 @@ export default function Orders() {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [orderSearch, setOrderSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [orderTab, setOrderTab] = useState('active'); // 'active' | 'cancelled'
 
   const [productSearchResults, setProductSearchResults] = useState([]);
   const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
@@ -106,10 +107,16 @@ export default function Orders() {
       .finally(() => setSearchingProducts(false));
   }, [debouncedProductSearch, modal, editModal]);
 
-  const load = (targetPage = page, targetSize = pageSize, targetSearch = debouncedSearch) => {
+  const load = (
+    targetPage = page,
+    targetSize = pageSize,
+    targetSearch = debouncedSearch,
+    targetTab = orderTab
+  ) => {
     setLoadingOrders(true);
+    const isCancelled = targetTab === 'cancelled';
     api
-      .getOrdersPaged(targetPage, targetSize, 'orderId', 'desc', targetSearch)
+      .getOrdersPaged(targetPage, targetSize, 'orderId', 'desc', targetSearch, isCancelled)
       .then((res) => {
         if (res && res.content) {
           setOrders(res.content);
@@ -126,8 +133,13 @@ export default function Orders() {
   };
 
   useEffect(() => {
-    load(page, pageSize, debouncedSearch);
-  }, [page, pageSize, debouncedSearch]);
+    load(page, pageSize, debouncedSearch, orderTab);
+  }, [page, pageSize, debouncedSearch, orderTab]);
+
+  const handleTabChange = (newTab) => {
+    setOrderTab(newTab);
+    setPage(0);
+  };
 
   const handleClearOrderSearch = () => {
     setOrderSearch('');
@@ -345,7 +357,7 @@ export default function Orders() {
       if (orders.length === 1 && page > 0) {
         setPage(page - 1);
       } else {
-        load(page, pageSize, debouncedSearch);
+        load(page, pageSize, debouncedSearch, orderTab);
       }
     } catch (e) {
       toast.error(e?.message || 'Cancel failed');
@@ -522,7 +534,45 @@ export default function Orders() {
     <>
       <div className="card">
         <div className="section-header" style={{ flexWrap: 'wrap', gap: 12 }}>
-          <h2>All Orders</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0 }}>Orders</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface-2)', padding: 3, borderRadius: 8 }}>
+              <button
+                type="button"
+                style={{
+                  background: orderTab === 'active' ? 'var(--accent)' : 'transparent',
+                  color: orderTab === 'active' ? '#fff' : 'var(--muted)',
+                  border: 'none',
+                  padding: '5px 14px',
+                  fontSize: 12.5,
+                  fontWeight: orderTab === 'active' ? 600 : 500,
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onClick={() => handleTabChange('active')}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                style={{
+                  background: orderTab === 'cancelled' ? 'var(--danger)' : 'transparent',
+                  color: orderTab === 'cancelled' ? '#fff' : 'var(--muted)',
+                  border: 'none',
+                  padding: '5px 14px',
+                  fontSize: 12.5,
+                  fontWeight: orderTab === 'cancelled' ? 600 : 500,
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onClick={() => handleTabChange('cancelled')}
+              >
+                Cancelled
+              </button>
+            </div>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', width: 280, maxWidth: '100%' }}>
               <Search
@@ -538,7 +588,7 @@ export default function Orders() {
               />
               <input
                 type="text"
-                placeholder="Search orders..."
+                placeholder={orderTab === 'cancelled' ? "Search cancelled orders..." : "Search orders..."}
                 value={orderSearch}
                 onChange={(e) => setOrderSearch(e.target.value)}
                 onKeyDown={handleOrderSearchKeyDown}
@@ -572,9 +622,11 @@ export default function Orders() {
                 </button>
               )}
             </div>
-            <button className="btn btn-primary" onClick={openNewOrderModal}>
-              <Plus size={16} /> New Order
-            </button>
+            {orderTab === 'active' && (
+              <button className="btn btn-primary" onClick={openNewOrderModal}>
+                <Plus size={16} /> New Order
+              </button>
+            )}
           </div>
         </div>
         <div className="table-wrap">
@@ -593,7 +645,7 @@ export default function Orders() {
                   </button>
                 </>
               ) : (
-                <p>No orders yet.</p>
+                <p>{orderTab === 'cancelled' ? 'No cancelled orders.' : 'No orders yet.'}</p>
               )}
             </div>
           ) : (
@@ -605,7 +657,7 @@ export default function Orders() {
                   <th>Mobile</th>
                   <th>Date</th>
                   <th>Amount</th>
-                  <th>Payment</th>
+                  <th>{orderTab === 'cancelled' ? 'Status' : 'Payment'}</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -622,13 +674,17 @@ export default function Orders() {
                       ₹{o.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </td>
                     <td>
-                      <span
-                        className={`badge ${
-                          o.paymentMethod === 'CASH' ? 'badge-green' : 'badge-blue'
-                        }`}
-                      >
-                        {o.paymentMethod}
-                      </span>
+                      {o.isCancelled ? (
+                        <span className="badge badge-red">CANCELLED</span>
+                      ) : (
+                        <span
+                          className={`badge ${
+                            o.paymentMethod === 'CASH' ? 'badge-green' : 'badge-blue'
+                          }`}
+                        >
+                          {o.paymentMethod}
+                        </span>
+                      )}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
@@ -639,13 +695,15 @@ export default function Orders() {
                         >
                           <FileText size={13} />
                         </button>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => openEditOrderModal(o)}
-                          title="Edit Order"
-                        >
-                          <Pencil size={13} />
-                        </button>
+                        {!o.isCancelled && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => openEditOrderModal(o)}
+                            title="Edit Order"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                        )}
                         <button
                           className="btn btn-ghost btn-sm"
                           disabled={printing === o.orderId}
@@ -654,14 +712,16 @@ export default function Orders() {
                         >
                           <Printer size={13} />
                         </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          disabled={deleting === o.orderId}
-                          onClick={() => remove(o.orderId)}
-                          title="Cancel Order"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {!o.isCancelled && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            disabled={deleting === o.orderId}
+                            onClick={() => remove(o.orderId)}
+                            title="Cancel Order"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

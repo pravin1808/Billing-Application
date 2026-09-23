@@ -92,7 +92,9 @@ public class OrderController {
 
     @PutMapping("/order/{orderId}/cancel")
     public ResponseEntity<OrdersResponse> cancelOrder(@PathVariable long orderId) {
-        return ResponseEntity.ok(orderService.cancelOrder(orderId));
+        OrdersResponse cancelledOrder = orderService.cancelOrder(orderId);
+        OrdersResponse updatedInvoiceOrder = invoiceService.updateInvoice(cancelledOrder);
+        return ResponseEntity.ok(updatedInvoiceOrder);
     }
 
     @GetMapping("/order/{orderId}/invoice")

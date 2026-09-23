@@ -151,6 +151,7 @@ select option { background: var(--surface2); }
 .badge-green  { background: rgba(63,185,80,.15);  color: var(--green); }
 .badge-orange { background: rgba(249,115,22,.15); color: var(--accent); }
 .badge-blue   { background: rgba(88,166,255,.15); color: var(--blue); }
+.badge-red    { background: rgba(248,81,73,.15);  color: var(--danger); }
 
 /* ── Modal ── */
 .modal-backdrop {
