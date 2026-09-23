@@ -14,6 +14,23 @@ import java.util.List;
 @Repository
 public interface OrderRepo extends JpaRepository<Orders, Long> {
 
+    Page<Orders> findByIsCancelled(boolean isCancelled, Pageable pageable);
+
+    @Query("""
+        SELECT o FROM Orders o
+        WHERE o.isCancelled = :isCancelled AND (
+            LOWER(o.customerName) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR CAST(o.customerMobileNumber AS string) LIKE CONCAT('%', :search, '%')
+            OR CAST(o.invoiceNumber AS string) LIKE CONCAT('%', :search, '%')
+            OR LOWER(o.paymentMethod) LIKE LOWER(CONCAT('%', :search, '%'))
+        )
+        """)
+    Page<Orders> searchOrdersByCancelledStatus(
+            @Param("search") String search,
+            @Param("isCancelled") boolean isCancelled,
+            Pageable pageable
+    );
+
     @Query("""
         SELECT o FROM Orders o
         WHERE LOWER(o.customerName) LIKE LOWER(CONCAT('%', :search, '%'))

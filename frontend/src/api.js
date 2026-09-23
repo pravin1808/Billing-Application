@@ -34,8 +34,15 @@ export const api = {
 
   // Orders
   getOrders: () => fetch(`${API}/orders`).then(handleResponse),
-  getOrdersPaged: (page = 0, size = 10, sortBy = 'orderId', sortDir = 'desc', search = '') => {
-    let url = `${API}/orders/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`;
+  getOrdersPaged: (page = 0, size = 10, sortBy = 'orderId', sortDir = 'desc', search = '', cancelled = false) => {
+    let url = `${API}/orders/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}&cancelled=${cancelled}`;
+    if (search && search.trim()) {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+    return fetch(url).then(handleResponse);
+  },
+  getCancelledOrdersPaged: (page = 0, size = 10, sortBy = 'orderId', sortDir = 'desc', search = '') => {
+    let url = `${API}/orders/cancelled/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`;
     if (search && search.trim()) {
       url += `&search=${encodeURIComponent(search.trim())}`;
     }
@@ -46,7 +53,8 @@ export const api = {
   updateOrder: (id, data) => fetch(`${API}/order/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
   updateOrderProducts: (id, orderedProducts) => fetch(`${API}/order/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Array.isArray(orderedProducts) ? { orderedProducts } : orderedProducts) }).then(handleResponse),
   updateOrderCustomer: (id, data) => fetch(`${API}/order/${id}/customer`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(handleResponse),
-  deleteOrder: (id) => fetch(`${API}/order/${id}`, { method: 'DELETE' }).then(handleResponse),
+  cancelOrder: (id) => fetch(`${API}/order/${id}/cancel`, { method: 'PUT' }).then(handleResponse),
+  deleteOrder: (id) => fetch(`${API}/order/${id}/cancel`, { method: 'PUT' }).then(handleResponse),
   printInvoice: (id) => fetch(`${API}/order/${id}/invoice/print`, { method: 'POST' }).then(handleResponse),
   getInvoiceUrl: (id) => `${API}/order/${id}/invoice`,
 

@@ -337,18 +337,18 @@ export default function Orders() {
   };
 
   const remove = async (id) => {
-    if (!confirm('Delete this order?')) return;
+    if (!confirm('Cancel this order? Tyre stock will be restored to inventory.')) return;
     setDeleting(id);
     try {
-      await api.deleteOrder(id);
-      toast.success('Order deleted');
+      await api.cancelOrder(id);
+      toast.success('Order cancelled & stock restored');
       if (orders.length === 1 && page > 0) {
         setPage(page - 1);
       } else {
         load(page, pageSize, debouncedSearch);
       }
-    } catch {
-      toast.error('Delete failed');
+    } catch (e) {
+      toast.error(e?.message || 'Cancel failed');
     } finally {
       setDeleting(null);
     }
@@ -658,7 +658,7 @@ export default function Orders() {
                           className="btn btn-danger btn-sm"
                           disabled={deleting === o.orderId}
                           onClick={() => remove(o.orderId)}
-                          title="Delete"
+                          title="Cancel Order"
                         >
                           <Trash2 size={13} />
                         </button>

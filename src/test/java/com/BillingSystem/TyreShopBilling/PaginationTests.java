@@ -86,10 +86,11 @@ class PaginationTests {
         o1.setOrderDate(LocalDateTime.now());
         o1.setTotalAmount(5000.0f);
         o1.setPaymentMethod("CASH");
+        o1.setCancelled(false);
         o1.setOrderedProducts(new ArrayList<>());
 
         Page<Orders> page = new PageImpl<>(List.of(o1), Pageable.ofSize(1), 1);
-        when(orderRepo.findAll(any(Pageable.class))).thenReturn(page);
+        when(orderRepo.findByIsCancelled(org.mockito.ArgumentMatchers.eq(false), any(Pageable.class))).thenReturn(page);
 
         PageResponse<OrdersResponse> response = orderService.getOrdersPaged(0, 1, "orderId", "desc", null);
 
@@ -101,10 +102,11 @@ class PaginationTests {
         assertEquals(1, response.totalPages());
         assertTrue(response.isLast());
         assertEquals("Sunil Verma", response.content().get(0).customerName());
+        assertFalse(response.content().get(0).isCancelled());
     }
 
     @Test
-    void whenGetOrdersPaged_withSearch_thenCallsSearchOrders() {
+    void whenGetOrdersPaged_withSearch_thenCallsSearchOrdersByCancelledStatus() {
         Orders o1 = new Orders();
         o1.setOrderId(102);
         o1.setCustomerName("Akash Patel");
@@ -112,15 +114,40 @@ class PaginationTests {
         o1.setOrderDate(LocalDateTime.now());
         o1.setTotalAmount(3500.0f);
         o1.setPaymentMethod("UPI");
+        o1.setCancelled(false);
         o1.setOrderedProducts(new ArrayList<>());
 
         Page<Orders> page = new PageImpl<>(List.of(o1), Pageable.ofSize(1), 1);
-        when(orderRepo.searchOrders(org.mockito.ArgumentMatchers.eq("Akash"), any(Pageable.class))).thenReturn(page);
+        when(orderRepo.searchOrdersByCancelledStatus(org.mockito.ArgumentMatchers.eq("Akash"), org.mockito.ArgumentMatchers.eq(false), any(Pageable.class))).thenReturn(page);
 
         PageResponse<OrdersResponse> response = orderService.getOrdersPaged(0, 1, "orderId", "desc", "Akash");
 
         assertNotNull(response);
         assertEquals(1, response.content().size());
         assertEquals("Akash Patel", response.content().get(0).customerName());
+    }
+
+    @Test
+    void whenGetCancelledOrdersPaged_thenCallsWithCancelledTrue() {
+        Orders o1 = new Orders();
+        o1.setOrderId(103);
+        o1.setCustomerName("Vikram Singh");
+        o1.setCustomerMobileNumber(9123456789L);
+        o1.setOrderDate(LocalDateTime.now());
+        o1.setTotalAmount(4200.0f);
+        o1.setPaymentMethod("CARD");
+        o1.setCancelled(true);
+        o1.setCancelledAt(LocalDateTime.now());
+        o1.setOrderedProducts(new ArrayList<>());
+
+        Page<Orders> page = new PageImpl<>(List.of(o1), Pageable.ofSize(1), 1);
+        when(orderRepo.findByIsCancelled(org.mockito.ArgumentMatchers.eq(true), any(Pageable.class))).thenReturn(page);
+
+        PageResponse<OrdersResponse> response = orderService.getOrdersPaged(0, 1, "orderId", "desc", null, true);
+
+        assertNotNull(response);
+        assertEquals(1, response.content().size());
+        assertTrue(response.content().get(0).isCancelled());
+        assertNotNull(response.content().get(0).cancelledAt());
     }
 }

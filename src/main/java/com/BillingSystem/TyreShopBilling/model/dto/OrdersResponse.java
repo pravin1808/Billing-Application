@@ -16,6 +16,9 @@ public record OrdersResponse(
         LocalDateTime orderDate,
         float totalAmount,
         String paymentMethod,
+        boolean isCancelled,
+        @JsonFormat(pattern = "dd-MM-yyyy hh:mm a")
+        LocalDateTime cancelledAt,
         List<OrderedProductResponse> orderedProducts
 ) {
 }

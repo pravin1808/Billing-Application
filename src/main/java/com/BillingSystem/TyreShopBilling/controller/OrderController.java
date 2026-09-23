@@ -34,8 +34,19 @@ public class OrderController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "orderId") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "false") boolean cancelled) {
+        return ResponseEntity.ok(orderService.getOrdersPaged(page, size, sortBy, sortDir, search, cancelled));
+    }
+
+    @GetMapping("/orders/cancelled/paged")
+    public ResponseEntity<PageResponse<OrdersResponse>> getCancelledOrdersPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "orderId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(orderService.getOrdersPaged(page, size, sortBy, sortDir, search));
+        return ResponseEntity.ok(orderService.getOrdersPaged(page, size, sortBy, sortDir, search, true));
     }
 
     @GetMapping("/order/{orderId}")
@@ -77,10 +88,9 @@ public class OrderController {
         return ResponseEntity.ok(savedOrdersResponse);
     }
 
-    @DeleteMapping("/order/{orderId}")
-    public ResponseEntity<Void> deleteOrderById(@PathVariable long orderId) {
-        orderService.deleteOrderById(orderId);
-        return ResponseEntity.noContent().build();
+    @PutMapping("/order/{orderId}/cancel")
+    public ResponseEntity<OrdersResponse> cancelOrder(@PathVariable long orderId) {
+        return ResponseEntity.ok(orderService.cancelOrder(orderId));
     }
 
     @GetMapping("/order/{orderId}/invoice")

@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ProductService {
@@ -149,31 +148,10 @@ public class ProductService {
         }
     }
 
-    public void validateStock(String description, String size, int quantitySell) {
-        Optional<Product> optionalProduct = productRepo.findByDescriptionAndSize(description, size);
-        if (optionalProduct.isEmpty()) {
-            return;
-        }
-        Product product = optionalProduct.get();
-        if (product.getQuantity() < quantitySell) {
-            throw new InsufficientStockException(product.getDescription(), quantitySell, product.getQuantity());
-        }
-    }
-
     public void updateStock(Product product, int quantitySell) {
         if (product == null) {
             return;
         }
-        product.setQuantity(product.getQuantity() - quantitySell);
-        productRepo.save(product);
-    }
-
-    public void updateStock(String description, String size, int quantitySell) {
-        Optional<Product> optionalProduct = productRepo.findByDescriptionAndSize(description, size);
-        if (optionalProduct.isEmpty()) {
-            return;
-        }
-        Product product = optionalProduct.get();
         product.setQuantity(product.getQuantity() - quantitySell);
         productRepo.save(product);
     }

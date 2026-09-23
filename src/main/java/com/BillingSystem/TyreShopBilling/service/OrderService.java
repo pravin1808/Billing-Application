@@ -1,7 +1,6 @@
 package com.BillingSystem.TyreShopBilling.service;
 
 import com.BillingSystem.TyreShopBilling.InvoiceGenerator;
-import com.BillingSystem.TyreShopBilling.exception.InsufficientStockException;
 import com.BillingSystem.TyreShopBilling.exception.InvoiceGenerationException;
 import com.BillingSystem.TyreShopBilling.exception.ResourceNotFoundException;
 import com.BillingSystem.TyreShopBilling.model.OrderedProducts;
@@ -45,25 +44,17 @@ public class OrderService {
         List<OrdersResponse> ordersResponses = new ArrayList<>();
 
         for (Orders order : allOrders) {
-            List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
-            ordersResponses.add(new OrdersResponse(
-                    order.getOrderId(),
-                    order.getCustomerName(),
-                    order.getCustomerMobileNumber(),
-                    order.getGstInNumber(),
-                    order.getInvoiceNumber(),
-                    order.getInvoicePath(),
-                    order.getOrderDate(),
-                    order.getTotalAmount(),
-                    order.getPaymentMethod(),
-                    orderedProductResponses
-            ));
+            ordersResponses.add(toOrdersResponse(order));
         }
 
         return ordersResponses;
     }
 
     public PageResponse<OrdersResponse> getOrdersPaged(int page, int size, String sortBy, String sortDir, String search) {
+        return getOrdersPaged(page, size, sortBy, sortDir, search, false);
+    }
+
+    public PageResponse<OrdersResponse> getOrdersPaged(int page, int size, String sortBy, String sortDir, String search, boolean isCancelled) {
         String safeSortBy = (sortBy == null || sortBy.isBlank()) ? "orderDate" : sortBy;
         Sort sort = "asc".equalsIgnoreCase(sortDir)
                 ? Sort.by(safeSortBy).ascending()
@@ -72,27 +63,13 @@ public class OrderService {
 
         Page<Orders> ordersPage;
 
-        if(search == null || search.isBlank()){
-            ordersPage = orderRepo.findAll(pageable);
-        }else{
-            ordersPage = orderRepo.searchOrders(search.trim(), pageable);
+        if (search == null || search.isBlank()) {
+            ordersPage = orderRepo.findByIsCancelled(isCancelled, pageable);
+        } else {
+            ordersPage = orderRepo.searchOrdersByCancelledStatus(search.trim(), isCancelled, pageable);
         }
 
-        Page<OrdersResponse> responsePage = ordersPage.map(order -> {
-            List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
-            return new OrdersResponse(
-                    order.getOrderId(),
-                    order.getCustomerName(),
-                    order.getCustomerMobileNumber(),
-                    order.getGstInNumber(),
-                    order.getInvoiceNumber(),
-                    order.getInvoicePath(),
-                    order.getOrderDate(),
-                    order.getTotalAmount(),
-                    order.getPaymentMethod(),
-                    orderedProductResponses
-            );
-        });
+        Page<OrdersResponse> responsePage = ordersPage.map(this::toOrdersResponse);
 
         return PageResponse.from(responsePage);
     }
@@ -101,20 +78,7 @@ public class OrderService {
         Orders order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
-        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
-
-        return new OrdersResponse(
-                order.getOrderId(),
-                order.getCustomerName(),
-                order.getCustomerMobileNumber(),
-                order.getGstInNumber(),
-                order.getInvoiceNumber(),
-                order.getInvoicePath(),
-                order.getOrderDate(),
-                order.getTotalAmount(),
-                order.getPaymentMethod(),
-                orderedProductResponses
-        );
+        return toOrdersResponse(order);
     }
 
     @Transactional
@@ -148,12 +112,6 @@ public class OrderService {
                         orderedProduct.getProduct(),
                         orderedProduct.getQuantitySell()
                 );
-            } else {
-                productService.validateStock(
-                        orderedProduct.getDescription(),
-                        orderedProduct.getSize(),
-                        orderedProduct.getQuantitySell()
-                );
             }
         }
 
@@ -163,31 +121,12 @@ public class OrderService {
                         orderedProduct.getProduct(),
                         orderedProduct.getQuantitySell()
                 );
-            } else {
-                productService.updateStock(
-                        orderedProduct.getDescription(),
-                        orderedProduct.getSize(),
-                        orderedProduct.getQuantitySell()
-                );
             }
         }
 
         Orders addedOrder = orderRepo.save(newOrder);
 
-        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(addedOrder);
-
-        return new OrdersResponse(
-                addedOrder.getOrderId(),
-                addedOrder.getCustomerName(),
-                addedOrder.getCustomerMobileNumber(),
-                addedOrder.getGstInNumber(),
-                addedOrder.getInvoiceNumber(),
-                null,
-                addedOrder.getOrderDate(),
-                addedOrder.getTotalAmount(),
-                addedOrder.getPaymentMethod(),
-                orderedProductResponses
-        );
+        return toOrdersResponse(addedOrder);
     }
 
     public String generateInvoicePDF(OrdersResponse ordersResponse){
@@ -209,19 +148,7 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
         order.setInvoicePath(pdfPath);
         Orders savedOrder = orderRepo.save(order);
-        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(savedOrder);
-        return new OrdersResponse(
-                savedOrder.getOrderId(),
-                savedOrder.getCustomerName(),
-                savedOrder.getCustomerMobileNumber(),
-                savedOrder.getGstInNumber(),
-                savedOrder.getInvoiceNumber(),
-                savedOrder.getInvoicePath(),
-                savedOrder.getOrderDate(),
-                savedOrder.getTotalAmount(),
-                savedOrder.getPaymentMethod(),
-                orderedProductResponses
-        );
+        return toOrdersResponse(savedOrder);
     }
 
     public OrdersResponse updateInvoice(OrdersResponse ordersResponse) {
@@ -234,12 +161,13 @@ public class OrderService {
         Orders existingOrder = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
+        if (existingOrder.isCancelled()) {
+            throw new IllegalStateException("Cannot update products of an order that has already been cancelled.");
+        }
+
         for (OrderedProducts oldItem : existingOrder.getOrderedProducts()) {
             if (oldItem.getProduct() != null) {
                 productService.restoreStock(oldItem.getProduct(), oldItem.getQuantitySell());
-            } else if (oldItem.getDescription() != null && oldItem.getSize() != null && productRepo != null) {
-                productRepo.findByDescriptionAndSize(oldItem.getDescription(), oldItem.getSize())
-                        .ifPresent(p -> productService.restoreStock(p, oldItem.getQuantitySell()));
             }
         }
         existingOrder.getOrderedProducts().clear();
@@ -261,12 +189,6 @@ public class OrderService {
                         orderProduct.getProduct(),
                         orderProduct.getQuantitySell()
                 );
-            } else {
-                productService.validateStock(
-                        orderProduct.getDescription(),
-                        orderProduct.getSize(),
-                        orderProduct.getQuantitySell()
-                );
             }
         }
 
@@ -276,30 +198,11 @@ public class OrderService {
                         orderProduct.getProduct(),
                         orderProduct.getQuantitySell()
                 );
-            } else {
-                productService.updateStock(
-                        orderProduct.getDescription(),
-                        orderProduct.getSize(),
-                        orderProduct.getQuantitySell()
-                );
             }
         }
 
         Orders savedOrder = orderRepo.save(existingOrder);
-        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(savedOrder);
-
-        return new OrdersResponse(
-                savedOrder.getOrderId(),
-                savedOrder.getCustomerName(),
-                savedOrder.getCustomerMobileNumber(),
-                savedOrder.getGstInNumber(),
-                savedOrder.getInvoiceNumber(),
-                savedOrder.getInvoicePath(),
-                savedOrder.getOrderDate(),
-                savedOrder.getTotalAmount(),
-                savedOrder.getPaymentMethod(),
-                orderedProductResponses
-        );
+        return toOrdersResponse(savedOrder);
     }
 
     @Transactional
@@ -307,32 +210,39 @@ public class OrderService {
         Orders existingOrder = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
+        if (existingOrder.isCancelled()) {
+            throw new IllegalStateException("Cannot update customer details of an order that has already been cancelled.");
+        }
+
         existingOrder.setCustomerName(req.customerName());
         existingOrder.setCustomerMobileNumber(req.customerMobileNumber());
         existingOrder.setGstInNumber(req.gstInNumber());
         existingOrder.setPaymentMethod(req.paymentMethod());
 
         Orders savedOrder = orderRepo.save(existingOrder);
-        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(savedOrder);
-
-        return new OrdersResponse(
-                savedOrder.getOrderId(),
-                savedOrder.getCustomerName(),
-                savedOrder.getCustomerMobileNumber(),
-                savedOrder.getGstInNumber(),
-                savedOrder.getInvoiceNumber(),
-                savedOrder.getInvoicePath(),
-                savedOrder.getOrderDate(),
-                savedOrder.getTotalAmount(),
-                savedOrder.getPaymentMethod(),
-                orderedProductResponses
-        );
+        return toOrdersResponse(savedOrder);
     }
 
-    public void deleteOrderById(long orderId) {
-        Orders order = orderRepo.findById(orderId)
+    @Transactional
+    public OrdersResponse cancelOrder(long orderId) {
+        Orders existingOrder = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
-        orderRepo.deleteById(order.getOrderId());
+
+        if (existingOrder.isCancelled()) {
+            throw new IllegalStateException("Order #" + orderId + " has already been cancelled.");
+        }
+
+        for (OrderedProducts oldItem : existingOrder.getOrderedProducts()) {
+            if (oldItem.getProduct() != null) {
+                productService.restoreStock(oldItem.getProduct(), oldItem.getQuantitySell());
+            }
+        }
+
+        existingOrder.setCancelled(true);
+        existingOrder.setCancelledAt(LocalDateTime.now());
+
+        Orders savedOrder = orderRepo.save(existingOrder);
+        return toOrdersResponse(savedOrder);
     }
 
     public void printOrderInvoice(long orderId) {
@@ -371,6 +281,24 @@ public class OrderService {
         }
     }
 
+    public OrdersResponse toOrdersResponse(Orders order) {
+        List<OrderedProductResponse> orderedProductResponses = getOrderedProductResponses(order);
+        return new OrdersResponse(
+                order.getOrderId(),
+                order.getCustomerName(),
+                order.getCustomerMobileNumber(),
+                order.getGstInNumber(),
+                order.getInvoiceNumber(),
+                order.getInvoicePath(),
+                order.getOrderDate(),
+                order.getTotalAmount(),
+                order.getPaymentMethod(),
+                order.isCancelled(),
+                order.getCancelledAt(),
+                orderedProductResponses
+        );
+    }
+
     private static @NonNull List<OrderedProductResponse> getOrderedProductResponses(Orders order) {
         List<OrderedProductResponse> orderedProductResponses = new ArrayList<>();
 
@@ -398,9 +326,6 @@ public class OrderService {
             Product product = productRepo.findById(item.productId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.productId()));
             orderedProduct.setProduct(product);
-        } else if (item.description() != null && item.size() != null && productRepo != null) {
-            productRepo.findByDescriptionAndSize(item.description(), item.size())
-                    .ifPresent(orderedProduct::setProduct);
         }
 
         orderedProduct.setDescription(item.description());

@@ -25,6 +25,9 @@ public class Orders {
     private LocalDateTime orderDate;
     private float totalAmount;
     private String paymentMethod;
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isCancelled = false;
+    private LocalDateTime cancelledAt;
 
     @OneToMany(mappedBy = "orders", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderedProducts> orderedProducts;
