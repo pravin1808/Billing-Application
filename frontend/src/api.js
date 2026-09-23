@@ -33,7 +33,13 @@ export const api = {
   deleteProduct: (id) => fetch(`${API}/product/${id}`, { method: 'DELETE' }).then(handleResponse),
 
   // Orders
-  getOrders: () => fetch(`${API}/orders`).then(handleResponse),
+  getOrders: (cancelled) => {
+    let url = `${API}/orders`;
+    if (typeof cancelled === 'boolean') {
+      url += `?cancelled=${cancelled}`;
+    }
+    return fetch(url).then(handleResponse);
+  },
   getOrdersPaged: (page = 0, size = 10, sortBy = 'orderId', sortDir = 'desc', search = '', cancelled = false) => {
     let url = `${API}/orders/paged?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}&cancelled=${cancelled}`;
     if (search && search.trim()) {

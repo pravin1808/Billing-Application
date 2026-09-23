@@ -152,4 +152,17 @@ class ControllerValidationTests {
 
         org.mockito.Mockito.verify(invoiceService).printOrderInvoice(orderId);
     }
+
+    @Test
+    void whenGetAllOrdersWithCancelledParam_thenCallsGetOrdersByCancelled() throws Exception {
+        mockMvcOrder.perform(get("/api/orders?cancelled=false"))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(orderService).getOrdersByCancelled(false);
+
+        mockMvcOrder.perform(get("/api/orders?cancelled=true"))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(orderService).getOrdersByCancelled(true);
+    }
 }

@@ -3,6 +3,7 @@ package com.BillingSystem.TyreShopBilling.repository;
 import com.BillingSystem.TyreShopBilling.model.Orders;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,8 @@ import java.util.List;
 public interface OrderRepo extends JpaRepository<Orders, Long> {
 
     Page<Orders> findByIsCancelled(boolean isCancelled, Pageable pageable);
+
+    List<Orders> findByIsCancelled(boolean isCancelled, Sort sort);
 
     @Query("""
         SELECT o FROM Orders o
@@ -54,6 +57,7 @@ public interface OrderRepo extends JpaRepository<Orders, Long> {
     ) AS months(month)
     LEFT JOIN orders o
         ON DATE_TRUNC('month', o.order_date) = months.month
+        AND (o.is_cancelled = false OR o.is_cancelled IS NULL)
     GROUP BY months.month
     ORDER BY months.month
     """, nativeQuery = true)
@@ -74,6 +78,7 @@ public interface OrderRepo extends JpaRepository<Orders, Long> {
     ) AS days(day)
     LEFT JOIN orders o
         ON DATE(o.order_date) = days.day
+        AND (o.is_cancelled = false OR o.is_cancelled IS NULL)
     GROUP BY days.day
     ORDER BY days.day
     """, nativeQuery = true)

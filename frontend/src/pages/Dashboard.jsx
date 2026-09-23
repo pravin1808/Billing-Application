@@ -18,7 +18,10 @@ export default function Dashboard() {
     api.getProducts().then(setProducts).catch(() => {});
   }, []);
 
-  const totalRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
+  const activeOrders = orders.filter(o => !o.isCancelled);
+  const cancelledOrders = orders.filter(o => o.isCancelled);
+  const totalRevenue = activeOrders.reduce((s, o) => s + o.totalAmount, 0);
+  const avgOrderValue = activeOrders.length ? Math.round(totalRevenue / activeOrders.length) : 0;
   const recentOrders = [...orders].reverse().slice(0, 10);
   const allProducts = [...products];
 
@@ -137,9 +140,9 @@ export default function Dashboard() {
             >
               <div className="stat-icon blue"><ShoppingCart size={20} /></div>
               <div>
-                <div className="stat-value">{orders.length}</div>
+                <div className="stat-value">{activeOrders.length}</div>
                 <div className="stat-label">
-                  Total Orders {orderProductTab === 'orders' && <span style={{ color: 'var(--accent)', fontSize: 11 }}>• Active</span>}
+                  Active Orders {cancelledOrders.length > 0 && <span style={{ color: 'var(--muted)', fontSize: 11 }}>({cancelledOrders.length} cancelled)</span>}
                 </div>
               </div>
             </div>
@@ -169,7 +172,7 @@ export default function Dashboard() {
               <div className="stat-icon orange"><TrendingUp size={20} /></div>
               <div>
                 <div className="stat-value">
-                  ₹{orders.length ? Math.round(totalRevenue / orders.length).toLocaleString('en-IN') : 0}
+                  ₹{avgOrderValue.toLocaleString('en-IN')}
                 </div>
                 <div className="stat-label">Avg Order Value</div>
               </div>
@@ -244,12 +247,19 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {recentOrders.map((o, index) => (
-                        <tr key={o.orderId} style={{ cursor: 'pointer' }} onClick={() => navigate(`/invoice/${o.orderId}`)}>
+                        <tr key={o.orderId} style={{ cursor: 'pointer', opacity: o.isCancelled ? 0.75 : 1 }} onClick={() => navigate(`/invoice/${o.orderId}`)}>
                           <td><span style={{ color: 'var(--muted)' }}>{index + 1}</span></td>
-                          <td style={{ fontWeight: 500 }}>{o.customerName}</td>
+                          <td style={{ fontWeight: 500 }}>
+                            {o.customerName}
+                            {o.isCancelled && (
+                              <span className="badge badge-danger" style={{ marginLeft: 8, fontSize: 10, background: '#fee2e2', color: '#dc2626' }}>Cancelled</span>
+                            )}
+                          </td>
                           <td style={{ color: 'var(--muted)' }}>{o.customerMobileNumber}</td>
                           <td style={{ color: 'var(--muted)' }}>{o.orderDate}</td>
-                          <td style={{ fontWeight: 600 }}>₹{o.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                          <td style={{ fontWeight: 600, textDecoration: o.isCancelled ? 'line-through' : 'none' }}>
+                            ₹{o.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          </td>
                           <td><span className={`badge ${o.paymentMethod === 'CASH' ? 'badge-green' : 'badge-blue'}`}>{o.paymentMethod}</span></td>
                         </tr>
                       ))}

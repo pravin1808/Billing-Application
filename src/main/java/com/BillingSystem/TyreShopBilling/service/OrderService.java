@@ -43,6 +43,15 @@ public class OrderService {
         return ordersResponses;
     }
 
+    public List<OrdersResponse> getOrdersByCancelled(boolean isCancelled) {
+        List<Orders> ordersList = orderRepo.findByIsCancelled(isCancelled, Sort.by(Sort.Direction.ASC, "orderId"));
+        List<OrdersResponse> responses = new ArrayList<>();
+        for (Orders order : ordersList) {
+            responses.add(toOrdersResponse(order));
+        }
+        return responses;
+    }
+
     public PageResponse<OrdersResponse> getOrdersPaged(int page, int size, String sortBy, String sortDir, String search) {
         return getOrdersPaged(page, size, sortBy, sortDir, search, false);
     }

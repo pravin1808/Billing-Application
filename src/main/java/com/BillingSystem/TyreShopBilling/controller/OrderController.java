@@ -26,7 +26,11 @@ public class OrderController {
     private InvoiceService invoiceService;
 
     @GetMapping("/orders")
-    public ResponseEntity<List<OrdersResponse>> getAllOrders() {
+    public ResponseEntity<List<OrdersResponse>> getAllOrders(
+            @RequestParam(required = false) Boolean cancelled) {
+        if (cancelled != null) {
+            return ResponseEntity.ok(orderService.getOrdersByCancelled(cancelled));
+        }
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
