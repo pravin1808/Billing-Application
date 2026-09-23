@@ -6,6 +6,7 @@ import com.BillingSystem.TyreShopBilling.model.dto.OrderProductsUpdateRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersRequest;
 import com.BillingSystem.TyreShopBilling.model.dto.PageResponse;
 import com.BillingSystem.TyreShopBilling.model.dto.OrdersResponse;
+import com.BillingSystem.TyreShopBilling.service.InvoiceService;
 import com.BillingSystem.TyreShopBilling.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,7 @@ import java.util.List;
 public class OrderController {
 
     private OrderService orderService;
+    private InvoiceService invoiceService;
 
     @GetMapping("/orders")
     public ResponseEntity<List<OrdersResponse>> getAllOrders() {
@@ -57,10 +59,10 @@ public class OrderController {
     @PostMapping("/order")
     public ResponseEntity<OrdersResponse> addOrder(@Valid @RequestBody OrdersRequest newOrderRequest) {
         OrdersResponse addedOrdersResponse = orderService.addNewOrder(newOrderRequest);
-        String pdfPath = orderService.generateInvoicePDF(addedOrdersResponse);
-        OrdersResponse savedOrdersResponse = orderService.savePDFPath(addedOrdersResponse.orderId(), pdfPath);
+        String pdfPath = invoiceService.generateInvoicePDF(addedOrdersResponse);
+        OrdersResponse savedOrdersResponse = invoiceService.savePDFPath(addedOrdersResponse.orderId(), pdfPath);
         try {
-            orderService.printOrderInvoice(savedOrdersResponse.orderId());
+            invoiceService.printOrderInvoice(savedOrdersResponse.orderId());
         } catch (Exception e) {
             throw new InvoiceGenerationException(
                     "Order #" + savedOrdersResponse.orderId()
@@ -75,7 +77,7 @@ public class OrderController {
             @PathVariable long orderId,
             @Valid @RequestBody OrderProductsUpdateRequest updatedOrder) {
         OrdersResponse updatedOrdersResponse = orderService.updateOrder(orderId, updatedOrder);
-        OrdersResponse savedOrdersResponse = orderService.updateInvoice(updatedOrdersResponse);
+        OrdersResponse savedOrdersResponse = invoiceService.updateInvoice(updatedOrdersResponse);
         return ResponseEntity.ok(savedOrdersResponse);
     }
 
@@ -84,7 +86,7 @@ public class OrderController {
             @PathVariable long orderId,
             @Valid @RequestBody OrderCustomerUpdateRequest customerUpdateRequest) {
         OrdersResponse updatedOrdersResponse = orderService.updateOrderCustomerDetails(orderId, customerUpdateRequest);
-        OrdersResponse savedOrdersResponse = orderService.updateInvoice(updatedOrdersResponse);
+        OrdersResponse savedOrdersResponse = invoiceService.updateInvoice(updatedOrdersResponse);
         return ResponseEntity.ok(savedOrdersResponse);
     }
 
@@ -95,7 +97,7 @@ public class OrderController {
 
     @GetMapping("/order/{orderId}/invoice")
     public ResponseEntity<byte[]> getInvoicePdf(@PathVariable long orderId) {
-        byte[] pdf = orderService.getInvoicePdf(orderId);
+        byte[] pdf = invoiceService.getInvoicePdf(orderId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDispositionFormData("inline", "invoice-" + orderId + ".pdf");
@@ -104,12 +106,17 @@ public class OrderController {
 
     @PostMapping("/order/{orderId}/invoice/print")
     public ResponseEntity<String> printInvoice(@PathVariable long orderId) {
-        orderService.printOrderInvoice(orderId);
+        invoiceService.printOrderInvoice(orderId);
         return ResponseEntity.ok("Invoice for order #" + orderId + " sent to printer successfully.");
     }
 
     @Autowired
     public void setOrderService(OrderService orderService) {
         this.orderService = orderService;
+    }
+
+    @Autowired
+    public void setInvoiceService(InvoiceService invoiceService) {
+        this.invoiceService = invoiceService;
     }
 }
