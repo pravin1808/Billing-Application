@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { api } from '../api';
 import {
   Plus,
+  Pencil,
   Trash2,
   FileText,
   Printer,
@@ -50,6 +51,20 @@ export default function Orders() {
   const [viewingInvoiceId, setViewingInvoiceId] = useState(null);
   const navigate = useNavigate();
 
+  // Edit order modal states
+  const [editModal, setEditModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [editTab, setEditTab] = useState('customer'); // 'customer' | 'products'
+  const [customerEditForm, setCustomerEditForm] = useState({
+    customerName: '',
+    customerMobileNumber: '',
+    gstInNumber: '',
+    paymentMethod: 'CASH',
+  });
+  const [productsEditList, setProductsEditList] = useState([]);
+  const [savingCustomerEdit, setSavingCustomerEdit] = useState(false);
+  const [savingProductsEdit, setSavingProductsEdit] = useState(false);
+
   // Debounce search input so backend isn't bombarded on each keystroke
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -59,7 +74,7 @@ export default function Orders() {
     return () => clearTimeout(timer);
   }, [orderSearch]);
 
-  // Debounce product search inside the Create Order modal
+  // Debounce product search inside modals
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedProductSearch(searchQuery.trim());
@@ -69,7 +84,7 @@ export default function Orders() {
 
   // Query backend search API for products whenever modal product search changes
   useEffect(() => {
-    if (!modal) return;
+    if (!modal && !editModal) return;
     if (!debouncedProductSearch) {
       setProductSearchResults([]);
       setSearchingProducts(false);
@@ -89,7 +104,7 @@ export default function Orders() {
       })
       .catch(() => toast.error('Failed to search products'))
       .finally(() => setSearchingProducts(false));
-  }, [debouncedProductSearch, modal]);
+  }, [debouncedProductSearch, modal, editModal]);
 
   const load = (targetPage = page, targetSize = pageSize, targetSearch = debouncedSearch) => {
     setLoadingOrders(true);
@@ -339,6 +354,168 @@ export default function Orders() {
     }
   };
 
+  const openEditOrderModal = (order) => {
+    setEditingOrder(order);
+    setEditTab('customer');
+    setCustomerEditForm({
+      customerName: order.customerName || '',
+      customerMobileNumber: order.customerMobileNumber ? String(order.customerMobileNumber) : '',
+      gstInNumber: order.gstInNumber || '',
+      paymentMethod: order.paymentMethod || 'CASH',
+    });
+    setProductsEditList(
+      (order.orderedProducts || []).map((p) => ({
+        productId: p.productId || null,
+        description: p.description || '',
+        size: p.size || '',
+        gst: p.gst ?? 18,
+        hsnNumber: p.hsnNumber ?? 4011,
+        gstPrice: p.gstPrice ?? '',
+        quantitySell: p.quantitySell ?? 1,
+        stock: null,
+      }))
+    );
+    setSearchQuery('');
+    setDebouncedProductSearch('');
+    setProductSearchResults([]);
+    setEditModal(true);
+  };
+
+  const setCustomerEditField = (k, v) =>
+    setCustomerEditForm((f) => ({ ...f, [k]: v }));
+
+  const setProductsEditItem = (i, k, v) =>
+    setProductsEditList((list) => {
+      const updated = [...list];
+      updated[i] = { ...updated[i], [k]: v };
+      return updated;
+    });
+
+  const removeProductsEditItem = (i) =>
+    setProductsEditList((list) => list.filter((_, idx) => idx !== i));
+
+  const addProductToEditList = (product) => {
+    setProductsEditList((list) => {
+      const existingIndex = list.findIndex(
+        (item) => item.description === product.description && item.size === product.size
+      );
+      if (existingIndex >= 0) {
+        const updated = [...list];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantitySell: Number(updated[existingIndex].quantitySell) + 1,
+        };
+        toast.success(`Increased quantity for ${product.description}`);
+        return updated;
+      }
+      const newItem = {
+        productId: product.productId || product.product_id || null,
+        description: product.description,
+        size: product.size,
+        gst: product.gst,
+        hsnNumber: product.hsnNumber,
+        gstPrice: '',
+        quantitySell: 1,
+        stock: product.quantity,
+      };
+      toast.success(`Added "${product.description}" to order`);
+      return [...list, newItem];
+    });
+  };
+
+  const addCustomItemToEdit = () => {
+    setProductsEditList((list) => [
+      ...list,
+      {
+        productId: null,
+        description: '',
+        size: '',
+        gst: 18,
+        hsnNumber: 4011,
+        gstPrice: '',
+        quantitySell: 1,
+        stock: null,
+      },
+    ]);
+  };
+
+  const editTotalAmount = productsEditList.reduce(
+    (s, p) =>
+      s + (parseFloat(p.gstPrice) || 0) * (parseInt(p.quantitySell) || 0),
+    0
+  );
+
+  const submitCustomerEdit = async () => {
+    if (!customerEditForm.customerName.trim()) {
+      return toast.error('Customer name is required');
+    }
+    if (!customerEditForm.customerMobileNumber) {
+      return toast.error('Mobile number is required');
+    }
+    const mob = Number(customerEditForm.customerMobileNumber);
+    if (isNaN(mob) || mob < 1000000000 || mob > 9999999999) {
+      return toast.error('Please enter a valid 10-digit mobile number');
+    }
+
+    setSavingCustomerEdit(true);
+    try {
+      const payload = {
+        customerName: customerEditForm.customerName.trim(),
+        customerMobileNumber: mob,
+        gstInNumber: customerEditForm.gstInNumber ? customerEditForm.gstInNumber.trim() : '',
+        paymentMethod: customerEditForm.paymentMethod,
+      };
+      const updated = await api.updateOrderCustomer(editingOrder.orderId, payload);
+      toast.success('Customer details updated & invoice regenerated!');
+      setEditModal(false);
+      load(page, pageSize, debouncedSearch);
+      if (updated?.orderId) {
+        setViewingInvoiceId(updated.orderId);
+      }
+    } catch (e) {
+      toast.error(e?.message || 'Failed to update customer details');
+    } finally {
+      setSavingCustomerEdit(false);
+    }
+  };
+
+  const submitProductsEdit = async () => {
+    if (productsEditList.length === 0) {
+      return toast.error('Order must contain at least one product');
+    }
+    if (
+      productsEditList.some(
+        (p) => !p.description || !p.size || !p.gstPrice || p.gstPrice <= 0 || !p.quantitySell || p.quantitySell <= 0
+      )
+    ) {
+      return toast.error('Please fill Rate and valid quantity for all products');
+    }
+
+    setSavingProductsEdit(true);
+    try {
+      const itemsPayload = productsEditList.map((p) => ({
+        productId: p.productId ? +p.productId : null,
+        description: p.description,
+        size: p.size,
+        gst: +p.gst,
+        hsnNumber: +p.hsnNumber,
+        gstPrice: +p.gstPrice,
+        quantitySell: +p.quantitySell,
+      }));
+      const updated = await api.updateOrderProducts(editingOrder.orderId, itemsPayload);
+      toast.success('Order products & stock updated, invoice regenerated!');
+      setEditModal(false);
+      load(page, pageSize, debouncedSearch);
+      if (updated?.orderId) {
+        setViewingInvoiceId(updated.orderId);
+      }
+    } catch (e) {
+      toast.error(e?.message || 'Failed to update order products');
+    } finally {
+      setSavingProductsEdit(false);
+    }
+  };
+
   const trimmedSearch = searchQuery.trim();
 
   return (
@@ -461,6 +638,13 @@ export default function Orders() {
                           title="View Invoice"
                         >
                           <FileText size={13} />
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => openEditOrderModal(o)}
+                          title="Edit Order"
+                        >
+                          <Pencil size={13} />
                         </button>
                         <button
                           className="btn btn-ghost btn-sm"
@@ -968,6 +1152,517 @@ export default function Orders() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT ORDER MODAL ── */}
+      {editModal && editingOrder && (
+        <div className="modal-backdrop" onClick={() => setEditModal(false)}>
+          <div
+            className="modal"
+            style={{ width: 1100, maxWidth: '96vw', maxHeight: '92vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <h2>Edit Order #{editingOrder.orderId}</h2>
+                  <span className="badge badge-blue" style={{ fontSize: 12 }}>
+                    Invoice #{editingOrder.invoiceNumber}
+                  </span>
+                  <span style={{ color: 'var(--muted)', fontSize: 12 }}>
+                    Date: {editingOrder.orderDate}
+                  </span>
+                </div>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditModal(false)}>
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Sub-Tabs: Customer Details vs Products & Stock */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  background: 'var(--surface2)',
+                  padding: 3,
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  alignSelf: 'flex-start',
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{
+                    background: editTab === 'customer' ? 'var(--accent)' : 'transparent',
+                    color: editTab === 'customer' ? '#fff' : 'var(--muted)',
+                    border: 'none',
+                    padding: '6px 16px',
+                    fontWeight: editTab === 'customer' ? 600 : 400,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderRadius: 6,
+                    transition: 'all 0.15s ease',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setEditTab('customer')}
+                >
+                  <User size={14} /> Customer Details
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{
+                    background: editTab === 'products' ? 'var(--accent)' : 'transparent',
+                    color: editTab === 'products' ? '#fff' : 'var(--muted)',
+                    border: 'none',
+                    padding: '6px 16px',
+                    fontWeight: editTab === 'products' ? 600 : 400,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderRadius: 6,
+                    transition: 'all 0.15s ease',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setEditTab('products')}
+                >
+                  <Package size={14} /> Products & Stock ({productsEditList.length})
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="modal-body" style={{ padding: '18px 24px' }}>
+              {editTab === 'customer' ? (
+                /* ── TAB 1: CUSTOMER DETAILS ── */
+                <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: 'var(--radius)',
+                      background: 'rgba(59, 130, 246, 0.08)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      display: 'flex',
+                      gap: 12,
+                      alignItems: 'flex-start',
+                      fontSize: 13,
+                    }}
+                  >
+                    <AlertCircle size={18} style={{ color: '#3b82f6', flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ color: 'var(--text)', lineHeight: 1.5 }}>
+                      <strong>Customer Metadata:</strong> Updates billing details and regenerates the invoice PDF directly without touching product inventory stock or line items.
+                    </span>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Customer Name *</label>
+                    <input
+                      value={customerEditForm.customerName}
+                      onChange={(e) => setCustomerEditField('customerName', e.target.value)}
+                      placeholder="e.g. Ramesh Patel"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Mobile Number *</label>
+                    <input
+                      type="number"
+                      value={customerEditForm.customerMobileNumber}
+                      onChange={(e) => setCustomerEditField('customerMobileNumber', e.target.value)}
+                      placeholder="10-digit number"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>GSTIN (Optional)</label>
+                    <input
+                      value={customerEditForm.gstInNumber}
+                      onChange={(e) => setCustomerEditField('gstInNumber', e.target.value)}
+                      placeholder="27XXXXX..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Payment Method</label>
+                    <select
+                      value={customerEditForm.paymentMethod}
+                      onChange={(e) => setCustomerEditField('paymentMethod', e.target.value)}
+                    >
+                      <option value="CASH">Cash</option>
+                      <option value="UPI">UPI</option>
+                      <option value="CARD">Card</option>
+                      <option value="CREDIT">Credit</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 12 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setEditModal(false)}
+                      disabled={savingCustomerEdit}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={submitCustomerEdit}
+                      disabled={savingCustomerEdit}
+                      style={{ padding: '8px 20px' }}
+                    >
+                      {savingCustomerEdit ? 'Saving...' : 'Save Customer Details'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── TAB 2: PRODUCTS & STOCK ── */
+                <div className="order-layout-grid">
+                  {/* Left Column: Summary & Save */}
+                  <div className="order-customer-panel">
+                    <h3>
+                      <Package size={15} style={{ color: 'var(--accent)' }} />
+                      Order Items Summary
+                    </h3>
+
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius)',
+                        background: 'rgba(234, 179, 8, 0.08)',
+                        border: '1px solid rgba(234, 179, 8, 0.25)',
+                        display: 'flex',
+                        gap: 8,
+                        alignItems: 'flex-start',
+                        fontSize: 12,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <AlertCircle size={16} style={{ color: '#eab308', flexShrink: 0, marginTop: 2 }} />
+                      <span style={{ color: 'var(--text)', lineHeight: 1.4 }}>
+                        Previous quantities will be restored back to stock automatically, and the updated items will be deducted. The invoice PDF will be regenerated with the new totals.
+                      </span>
+                    </div>
+
+                    <div className="summary-card">
+                      <div className="summary-row">
+                        <span>Items in Order:</span>
+                        <strong>{productsEditList.length}</strong>
+                      </div>
+                      <div className="summary-row total">
+                        <span>Grand Total:</span>
+                        <span>
+                          ₹
+                          {editTotalAmount.toLocaleString('en-IN', {
+                            maximumFractionDigits: 2,
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={submitProductsEdit}
+                        disabled={savingProductsEdit}
+                        style={{ justifyContent: 'center', padding: '10px 16px', fontSize: 14 }}
+                      >
+                        {savingProductsEdit ? 'Updating Products…' : 'Save Products & Update Stock'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => setEditModal(false)}
+                        disabled={savingProductsEdit}
+                        style={{ justifyContent: 'center' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Search & Items list */}
+                  <div className="order-products-panel">
+                    {/* Tyre Search Box */}
+                    <div className="order-search-box">
+                      <div className="order-search-header">
+                        <h3>
+                          <Search size={15} style={{ color: 'var(--accent)' }} />
+                          Add Tyres from Inventory
+                        </h3>
+                        {trimmedSearch && !searchingProducts && (
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                            Found {productSearchResults.length} {productSearchResults.length === 1 ? 'match' : 'matches'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="text"
+                          placeholder="Search tyres to add by brand, size, or model..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              setDebouncedProductSearch(searchQuery.trim());
+                            }
+                          }}
+                          style={{ padding: '8px 12px 8px 34px', fontSize: 13.5 }}
+                        />
+                        <Search
+                          size={15}
+                          style={{
+                            position: 'absolute',
+                            left: 11,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: 'var(--muted)',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery('');
+                              setDebouncedProductSearch('');
+                              setProductSearchResults([]);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              right: 8,
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--muted)',
+                              cursor: 'pointer',
+                              padding: 4,
+                            }}
+                            title="Clear search"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Search Results */}
+                      {searchingProducts ? (
+                        <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
+                          Searching tyres...
+                        </div>
+                      ) : trimmedSearch && productSearchResults.length === 0 ? (
+                        <div
+                          style={{
+                            padding: '12px 14px',
+                            background: 'rgba(234, 179, 8, 0.08)',
+                            borderRadius: 6,
+                            border: '1px solid rgba(234, 179, 8, 0.2)',
+                            fontSize: 12,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            color: 'var(--text)',
+                          }}
+                        >
+                          <AlertCircle size={14} style={{ color: 'var(--accent)' }} />
+                          <span>No tyres in stock matching "{searchQuery}"</span>
+                        </div>
+                      ) : (
+                        <div className="search-results-list">
+                          {productSearchResults.map((p) => {
+                            const isLow = p.quantity <= 5;
+                            const isOut = p.quantity <= 0;
+                            return (
+                              <div key={p.productId} className="search-result-card">
+                                <div className="search-result-info">
+                                  <div className="search-result-name">{p.description}</div>
+                                  <div className="search-result-meta">
+                                    <span>
+                                      Size: <strong>{p.size}</strong>
+                                    </span>
+                                    <span>•</span>
+                                    <span>GST: {p.gst}%</span>
+                                    <span>•</span>
+                                    <span>HSN: {p.hsnNumber}</span>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <span
+                                    className={`stock-pill ${
+                                      isOut ? 'out-stock' : isLow ? 'low-stock' : 'in-stock'
+                                    }`}
+                                  >
+                                    {p.quantity > 0 ? `${p.quantity} in stock` : 'Out of stock'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm"
+                                    onClick={() => addProductToEditList(p)}
+                                    style={{ padding: '4px 10px', fontSize: 12 }}
+                                  >
+                                    <Plus size={13} /> Add to Order
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ordered Items Table */}
+                    <div className="order-items-box">
+                      <div className="order-items-header">
+                        <h3>
+                          <Package size={15} style={{ color: 'var(--accent)' }} />
+                          Current Items in Order ({productsEditList.length})
+                        </h3>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={addCustomItemToEdit}
+                        >
+                          <Plus size={13} /> Add Blank Row
+                        </button>
+                      </div>
+
+                      {productsEditList.length === 0 ? (
+                        <div
+                          style={{
+                            padding: '30px 16px',
+                            textAlign: 'center',
+                            color: 'var(--muted)',
+                            fontSize: 13,
+                            border: '1px dashed var(--border)',
+                            borderRadius: 8,
+                          }}
+                        >
+                          <ShoppingCart
+                            size={28}
+                            style={{ margin: '0 auto 8px', opacity: 0.4, display: 'block' }}
+                          />
+                          No products left in order. Add at least one tyre.
+                        </div>
+                      ) : (
+                        <>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '2.4fr 1.2fr 0.8fr 1.2fr 1fr 34px',
+                              gap: 8,
+                              marginBottom: 8,
+                              padding: '0 6px',
+                            }}
+                          >
+                            {['Description', 'Size', 'GST %', 'Rate (incl. GST)', 'Qty', ''].map(
+                              (h) => (
+                                <span
+                                  key={h}
+                                  style={{
+                                    fontSize: 11,
+                                    color: 'var(--muted)',
+                                    fontWeight: 600,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '.04em',
+                                  }}
+                                >
+                                  {h}
+                                </span>
+                              )
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {productsEditList.map((item, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  padding: '8px 10px',
+                                  background: 'var(--surface)',
+                                  borderRadius: 8,
+                                  border: '1px solid var(--border)',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '2.4fr 1.2fr 0.8fr 1.2fr 1fr 34px',
+                                    gap: 8,
+                                    alignItems: 'center',
+                                  }}
+                                >
+                                  <input
+                                    value={item.description}
+                                    onChange={(e) => setProductsEditItem(i, 'description', e.target.value)}
+                                    placeholder="Tyre description"
+                                    style={{ fontSize: 13 }}
+                                  />
+
+                                  <input
+                                    value={item.size}
+                                    onChange={(e) => setProductsEditItem(i, 'size', e.target.value)}
+                                    placeholder="Size (e.g. 195/65)"
+                                    style={{ fontSize: 13 }}
+                                  />
+
+                                  <select
+                                    value={item.gst}
+                                    onChange={(e) => setProductsEditItem(i, 'gst', e.target.value)}
+                                    style={{ fontSize: 13 }}
+                                  >
+                                    <option value={12}>12%</option>
+                                    <option value={18}>18%</option>
+                                    <option value={28}>28%</option>
+                                  </select>
+
+                                  <input
+                                    type="number"
+                                    value={item.gstPrice}
+                                    onChange={(e) => setProductsEditItem(i, 'gstPrice', e.target.value)}
+                                    placeholder="₹ Price"
+                                    style={{ fontSize: 13 }}
+                                  />
+
+                                  <input
+                                    type="number"
+                                    value={item.quantitySell}
+                                    min={1}
+                                    onChange={(e) =>
+                                      setProductsEditItem(i, 'quantitySell', e.target.value)
+                                    }
+                                    style={{ fontSize: 13 }}
+                                  />
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() => removeProductsEditItem(i)}
+                                    title="Remove item"
+                                    style={{ padding: '6px' }}
+                                  >
+                                    <X size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
