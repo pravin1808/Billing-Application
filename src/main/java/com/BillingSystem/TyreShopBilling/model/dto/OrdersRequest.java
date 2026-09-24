@@ -26,7 +26,8 @@ public record OrdersRequest(
         @NotBlank(message = "Payment method is required")
         String paymentMethod,
 
-        @NotEmpty(message = "Order must contain at least one product")
-        List<@Valid OrderedProductRequest> orderedProducts
+        List<@Valid OrderedProductRequest> orderedProducts,
+
+        List<@Valid OrderedProductRequest> externalOrderedProducts
 ) {
 }

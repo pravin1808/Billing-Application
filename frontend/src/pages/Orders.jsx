@@ -187,9 +187,12 @@ export default function Orders() {
   const addProductFromSearch = (product) => {
     setForm((f) => {
       // Check if product is already in the list
+      const pId = product.productId || product.product_id;
       const existingIndex = f.orderedProducts.findIndex(
         (item) =>
-          item.description === product.description && item.size === product.size
+          !item.isExternal &&
+          ((pId && item.productId === pId) ||
+            (item.description === product.description && item.size === product.size))
       );
 
       if (existingIndex >= 0) {
@@ -205,7 +208,8 @@ export default function Orders() {
 
       // Add as new item
       const newItem = {
-        productId: product.productId || product.product_id || null,
+        productId: pId || null,
+        isExternal: false,
         description: product.description,
         size: product.size,
         gst: product.gst,
@@ -219,12 +223,14 @@ export default function Orders() {
     });
   };
 
-  const addCustomItem = () => {
+  const addExternalItem = () => {
     setForm((f) => ({
       ...f,
       orderedProducts: [
         ...f.orderedProducts,
         {
+          productId: null,
+          isExternal: true,
           description: '',
           size: '',
           gst: 18,
@@ -236,6 +242,7 @@ export default function Orders() {
       ],
     }));
   };
+  const addCustomItem = addExternalItem;
 
   const removeItem = (i) =>
     setForm((f) => ({
@@ -263,9 +270,9 @@ export default function Orders() {
       return toast.error('Please fill Rate and details for all products');
     }
 
-    // Check for stock warning
+    // Check for stock warning only for inventory items
     const overStock = form.orderedProducts.find(
-      (p) => p.stock !== null && p.stock !== undefined && +p.quantitySell > p.stock
+      (p) => !p.isExternal && p.stock !== null && p.stock !== undefined && +p.quantitySell > p.stock
     );
     if (overStock) {
       if (
@@ -279,18 +286,37 @@ export default function Orders() {
 
     setSaving(true);
     try {
-      const payload = {
-        ...form,
-        customerMobileNumber: +form.customerMobileNumber,
-        orderedProducts: form.orderedProducts.map((p) => ({
-          productId: p.productId ? +p.productId : null,
-          description: p.description,
-          size: p.size,
+      const inventoryProducts = form.orderedProducts
+        .filter((p) => !p.isExternal && p.productId)
+        .map((p) => ({
+          productId: +p.productId,
+          description: p.description.trim(),
+          size: p.size.trim(),
           gst: +p.gst,
           hsnNumber: +p.hsnNumber,
           gstPrice: +p.gstPrice,
           quantitySell: +p.quantitySell,
-        })),
+        }));
+
+      const externalOrderedProducts = form.orderedProducts
+        .filter((p) => p.isExternal || !p.productId)
+        .map((p) => ({
+          productId: null,
+          description: p.description.trim(),
+          size: p.size.trim(),
+          gst: +p.gst,
+          hsnNumber: +p.hsnNumber,
+          gstPrice: +p.gstPrice,
+          quantitySell: +p.quantitySell,
+        }));
+
+      const payload = {
+        customerName: form.customerName.trim(),
+        customerMobileNumber: +form.customerMobileNumber,
+        gstInNumber: form.gstInNumber ? form.gstInNumber.trim() : null,
+        paymentMethod: form.paymentMethod,
+        orderedProducts: inventoryProducts,
+        externalOrderedProducts: externalOrderedProducts,
       };
       const createdOrder = await api.addOrder(payload);
       toast.success('Order placed & invoice generated!');
@@ -378,6 +404,7 @@ export default function Orders() {
     setProductsEditList(
       (order.orderedProducts || []).map((p) => ({
         productId: p.productId || null,
+        isExternal: !p.productId,
         description: p.description || '',
         size: p.size || '',
         gst: p.gst ?? 18,
@@ -408,8 +435,12 @@ export default function Orders() {
 
   const addProductToEditList = (product) => {
     setProductsEditList((list) => {
+      const pId = product.productId || product.product_id;
       const existingIndex = list.findIndex(
-        (item) => item.description === product.description && item.size === product.size
+        (item) =>
+          !item.isExternal &&
+          ((pId && item.productId === pId) ||
+            (item.description === product.description && item.size === product.size))
       );
       if (existingIndex >= 0) {
         const updated = [...list];
@@ -421,7 +452,8 @@ export default function Orders() {
         return updated;
       }
       const newItem = {
-        productId: product.productId || product.product_id || null,
+        productId: pId || null,
+        isExternal: false,
         description: product.description,
         size: product.size,
         gst: product.gst,
@@ -435,11 +467,12 @@ export default function Orders() {
     });
   };
 
-  const addCustomItemToEdit = () => {
+  const addExternalItemToEdit = () => {
     setProductsEditList((list) => [
       ...list,
       {
         productId: null,
+        isExternal: true,
         description: '',
         size: '',
         gst: 18,
@@ -450,6 +483,7 @@ export default function Orders() {
       },
     ]);
   };
+  const addCustomItemToEdit = addExternalItemToEdit;
 
   const editTotalAmount = productsEditList.reduce(
     (s, p) =>
@@ -505,15 +539,34 @@ export default function Orders() {
 
     setSavingProductsEdit(true);
     try {
-      const itemsPayload = productsEditList.map((p) => ({
-        productId: p.productId ? +p.productId : null,
-        description: p.description,
-        size: p.size,
-        gst: +p.gst,
-        hsnNumber: +p.hsnNumber,
-        gstPrice: +p.gstPrice,
-        quantitySell: +p.quantitySell,
-      }));
+      const inventoryProducts = productsEditList
+        .filter((p) => !p.isExternal && p.productId)
+        .map((p) => ({
+          productId: +p.productId,
+          description: p.description.trim(),
+          size: p.size.trim(),
+          gst: +p.gst,
+          hsnNumber: +p.hsnNumber,
+          gstPrice: +p.gstPrice,
+          quantitySell: +p.quantitySell,
+        }));
+
+      const externalOrderedProducts = productsEditList
+        .filter((p) => p.isExternal || !p.productId)
+        .map((p) => ({
+          productId: null,
+          description: p.description.trim(),
+          size: p.size.trim(),
+          gst: +p.gst,
+          hsnNumber: +p.hsnNumber,
+          gstPrice: +p.gstPrice,
+          quantitySell: +p.quantitySell,
+        }));
+
+      const itemsPayload = {
+        orderedProducts: inventoryProducts,
+        externalOrderedProducts: externalOrderedProducts,
+      };
       const updated = await api.updateOrderProducts(editingOrder.orderId, itemsPayload);
       toast.success('Order products & stock updated, invoice regenerated!');
       setEditModal(false);
@@ -1029,17 +1082,18 @@ export default function Orders() {
 
                   {/* Ordered Items Table */}
                   <div className="order-items-box">
-                    <div className="order-items-header">
-                      <h3>
+                    <div className="order-items-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Package size={15} style={{ color: 'var(--accent)' }} />
-                        Ordered Items ({form.orderedProducts.length})
-                      </h3>
+                        <h3 style={{ margin: 0 }}>Ordered Items ({form.orderedProducts.length})</h3>
+                      </div>
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm"
-                        onClick={addCustomItem}
+                        onClick={addExternalItem}
+                        title="Add external product (not in inventory, won't deduct stock)"
                       >
-                        <Plus size={13} /> Add Blank Row
+                        <Plus size={13} /> Add External Product
                       </button>
                     </div>
 
@@ -1171,38 +1225,57 @@ export default function Orders() {
                                   </button>
                                 </div>
 
-                                {hasStock && (
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 6,
-                                      fontSize: 11,
-                                      marginTop: 4,
-                                    }}
-                                  >
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    fontSize: 11,
+                                    marginTop: 4,
+                                  }}
+                                >
+                                  {item.isExternal || !item.productId ? (
                                     <span
-                                      className={`stock-pill ${
-                                        item.stock <= 0
-                                          ? 'out-stock'
-                                          : item.stock <= 5
-                                          ? 'low-stock'
-                                          : 'in-stock'
-                                      }`}
-                                      style={{ fontSize: 10, padding: '1px 5px' }}
+                                      className="badge badge-purple"
+                                      style={{ fontSize: 10, padding: '1px 6px' }}
                                     >
-                                      {item.stock > 0
-                                        ? `${item.stock} in stock`
-                                        : 'Out of stock'}
+                                      External Item (Stock not deducted)
                                     </span>
-                                    {isOver && (
-                                      <span className="stock-warning">
-                                        <AlertCircle size={12} />
-                                        Requested ({item.quantitySell}) exceeds current stock ({item.stock})
+                                  ) : (
+                                    <>
+                                      <span
+                                        className="badge badge-blue"
+                                        style={{ fontSize: 10, padding: '1px 6px' }}
+                                      >
+                                        Inventory Tyre
                                       </span>
-                                    )}
-                                  </div>
-                                )}
+                                      {hasStock && (
+                                        <>
+                                          <span
+                                            className={`stock-pill ${
+                                              item.stock <= 0
+                                                ? 'out-stock'
+                                                : item.stock <= 5
+                                                ? 'low-stock'
+                                                : 'in-stock'
+                                            }`}
+                                            style={{ fontSize: 10, padding: '1px 5px' }}
+                                          >
+                                            {item.stock > 0
+                                              ? `${item.stock} in stock`
+                                              : 'Out of stock'}
+                                          </span>
+                                          {isOver && (
+                                            <span className="stock-warning">
+                                              <AlertCircle size={12} />
+                                              Requested ({item.quantitySell}) exceeds current stock ({item.stock})
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -1406,7 +1479,7 @@ export default function Orders() {
                     >
                       <AlertCircle size={16} style={{ color: '#eab308', flexShrink: 0, marginTop: 2 }} />
                       <span style={{ color: 'var(--text)', lineHeight: 1.4 }}>
-                        Previous quantities will be restored back to stock automatically, and the updated items will be deducted. The invoice PDF will be regenerated with the new totals.
+                        Inventory tyres will restore previous stock and deduct updated quantities. External products are billed directly without altering inventory stock.
                       </span>
                     </div>
 
@@ -1583,17 +1656,18 @@ export default function Orders() {
 
                     {/* Ordered Items Table */}
                     <div className="order-items-box">
-                      <div className="order-items-header">
-                        <h3>
+                      <div className="order-items-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <Package size={15} style={{ color: 'var(--accent)' }} />
-                          Current Items in Order ({productsEditList.length})
-                        </h3>
+                          <h3 style={{ margin: 0 }}>Current Items in Order ({productsEditList.length})</h3>
+                        </div>
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
-                          onClick={addCustomItemToEdit}
+                          onClick={addExternalItemToEdit}
+                          title="Add external product (not in inventory, won't deduct stock)"
                         >
-                          <Plus size={13} /> Add Blank Row
+                          <Plus size={13} /> Add External Product
                         </button>
                       </div>
 
@@ -1713,6 +1787,31 @@ export default function Orders() {
                                   >
                                     <X size={13} />
                                   </button>
+                                </div>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    fontSize: 11,
+                                    marginTop: 4,
+                                  }}
+                                >
+                                  {item.isExternal || !item.productId ? (
+                                    <span
+                                      className="badge badge-purple"
+                                      style={{ fontSize: 10, padding: '1px 6px' }}
+                                    >
+                                      External Item (Stock not deducted)
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="badge badge-blue"
+                                      style={{ fontSize: 10, padding: '1px 6px' }}
+                                    >
+                                      Inventory Tyre (Stock tracked)
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             ))}

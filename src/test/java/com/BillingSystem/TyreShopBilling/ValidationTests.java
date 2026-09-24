@@ -76,7 +76,8 @@ class ValidationTests {
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("customerName")));
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("customerMobileNumber")));
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("paymentMethod")));
-        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("orderedProducts")));
+        // @NotEmpty removed from orderedProducts — empty-list check is now done
+        // programmatically in OrderService.addNewOrder() via InvalidRequestException
     }
 
     @Test

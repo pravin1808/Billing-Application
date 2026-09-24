@@ -1,5 +1,6 @@
 package com.BillingSystem.TyreShopBilling.service;
 
+import com.BillingSystem.TyreShopBilling.exception.InvalidRequestException;
 import com.BillingSystem.TyreShopBilling.exception.ResourceNotFoundException;
 import com.BillingSystem.TyreShopBilling.model.OrderedProducts;
 import com.BillingSystem.TyreShopBilling.model.Orders;
@@ -9,6 +10,7 @@ import com.BillingSystem.TyreShopBilling.repository.OrderRepo;
 import com.BillingSystem.TyreShopBilling.repository.OrderedProductRepo;
 import com.BillingSystem.TyreShopBilling.repository.ProductRepo;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -98,10 +100,24 @@ public class OrderService {
         float totalAmount = 0f;
         List<OrderedProducts> orderedProducts = new ArrayList<>();
 
-        for (OrderedProductRequest item : newOrderReq.orderedProducts()) {
-            OrderedProducts orderedProduct = getOrderedProducts(item, newOrder);
-            totalAmount += orderedProduct.getAmount();
-            orderedProducts.add(orderedProduct);
+        if(newOrderReq.orderedProducts() != null) {
+            for (OrderedProductRequest item : newOrderReq.orderedProducts()) {
+                OrderedProducts orderedProduct = getOrderedProducts(item, newOrder);
+                totalAmount += orderedProduct.getAmount();
+                orderedProducts.add(orderedProduct);
+            }
+        }
+
+        if(newOrderReq.externalOrderedProducts() != null) {
+            for (OrderedProductRequest item : newOrderReq.externalOrderedProducts()) {
+                OrderedProducts orderedProduct = getOrderedProducts(item, newOrder);
+                totalAmount += orderedProduct.getAmount();
+                orderedProducts.add(orderedProduct);
+            }
+        }
+
+        if (orderedProducts.isEmpty()) {
+            throw new InvalidRequestException("Order must contain at least one product");
         }
 
         newOrder.setTotalAmount(totalAmount);
@@ -148,12 +164,26 @@ public class OrderService {
         existingOrder.getOrderedProducts().clear();
 
         float totalAmount = 0f;
-
-        for (OrderedProductRequest item : updatedOrderReq.orderedProducts()) {
-            OrderedProducts orderedProduct = getOrderedProducts(item, existingOrder);
-            totalAmount += orderedProduct.getAmount();
-            existingOrder.getOrderedProducts().add(orderedProduct);
+        if(updatedOrderReq.orderedProducts() != null) {
+            for (OrderedProductRequest item : updatedOrderReq.orderedProducts()) {
+                OrderedProducts orderedProduct = getOrderedProducts(item, existingOrder);
+                totalAmount += orderedProduct.getAmount();
+                existingOrder.getOrderedProducts().add(orderedProduct);
+            }
         }
+
+        if(updatedOrderReq.externalOrderedProducts() != null) {
+            for (OrderedProductRequest item : updatedOrderReq.externalOrderedProducts()) {
+                OrderedProducts orderedProduct = getOrderedProducts(item, existingOrder);
+                totalAmount += orderedProduct.getAmount();
+                existingOrder.getOrderedProducts().add(orderedProduct);
+            }
+        }
+
+        if (existingOrder.getOrderedProducts().isEmpty()) {
+            throw new InvalidRequestException("Order must contain at least one product");
+        }
+
         existingOrder.setTotalAmount(totalAmount);
 
         List<OrderedProducts> orderedProducts = existingOrder.getOrderedProducts();
