@@ -65,6 +65,17 @@ export default function Orders() {
   const [productsEditList, setProductsEditList] = useState([]);
   const [savingCustomerEdit, setSavingCustomerEdit] = useState(false);
   const [savingProductsEdit, setSavingProductsEdit] = useState(false);
+  const [gstRates, setGstRates] = useState([12, 18, 28]);
+
+  useEffect(() => {
+    api.getGstRates()
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          setGstRates(res.map((g) => g.gst).sort((a, b) => a - b));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Debounce search input so backend isn't bombarded on each keystroke
   useEffect(() => {
@@ -1187,12 +1198,12 @@ export default function Orders() {
 
                                   <select
                                     value={item.gst}
-                                    onChange={(e) => setItem(i, 'gst', e.target.value)}
+                                    onChange={(e) => setItem(i, 'gst', +e.target.value)}
                                     style={{ fontSize: 13 }}
                                   >
-                                    <option value={12}>12%</option>
-                                    <option value={18}>18%</option>
-                                    <option value={28}>28%</option>
+                                    {Array.from(new Set([...gstRates, Number(item.gst) || 18])).sort((a, b) => a - b).map((rate) => (
+                                      <option key={rate} value={rate}>{rate}%</option>
+                                    ))}
                                   </select>
 
                                   <input
@@ -1752,12 +1763,12 @@ export default function Orders() {
 
                                   <select
                                     value={item.gst}
-                                    onChange={(e) => setProductsEditItem(i, 'gst', e.target.value)}
+                                    onChange={(e) => setProductsEditItem(i, 'gst', +e.target.value)}
                                     style={{ fontSize: 13 }}
                                   >
-                                    <option value={12}>12%</option>
-                                    <option value={18}>18%</option>
-                                    <option value={28}>28%</option>
+                                    {Array.from(new Set([...gstRates, Number(item.gst) || 18])).sort((a, b) => a - b).map((rate) => (
+                                      <option key={rate} value={rate}>{rate}%</option>
+                                    ))}
                                   </select>
 
                                   <input

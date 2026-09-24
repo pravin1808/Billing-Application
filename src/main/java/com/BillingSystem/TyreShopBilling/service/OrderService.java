@@ -10,7 +10,6 @@ import com.BillingSystem.TyreShopBilling.repository.OrderRepo;
 import com.BillingSystem.TyreShopBilling.repository.OrderedProductRepo;
 import com.BillingSystem.TyreShopBilling.repository.ProductRepo;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -31,7 +30,6 @@ public class OrderService {
     private InvoiceNumberService invoiceNumberService;
     private ProductService productService;
     private ProductRepo productRepo;
-    private OrderedProductRepo orderedProductRepo;
 
     public List<OrdersResponse> getAllOrders() {
         List<Orders> allOrders = orderRepo.findAll(Sort.by(Sort.Direction.ASC, "orderId"));
@@ -330,8 +328,4 @@ public class OrderService {
         this.productService = productService;
     }
 
-    @Autowired
-    public void setOrderedProductRepo(OrderedProductRepo orderedProductRepo){
-        this.orderedProductRepo = orderedProductRepo;
-    }
 }

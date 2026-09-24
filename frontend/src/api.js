@@ -63,11 +63,14 @@ export const api = {
   printInvoice: (id) => fetch(`${API}/order/${id}/invoice/print`, { method: 'POST' }).then(handleResponse),
   getInvoiceUrl: (id) => `${API}/order/${id}/invoice`,
 
-  // Settings
+  // Settings & GST
   getInvoicePath: () => fetch(`${API}/order/invoicePath`).then(handleResponse),
   updateInvoiceNumber: (num) => fetch(`${API}/order/invoice/${num}`, { method: 'PUT' }).then(handleResponse),
   updateInvoicePath: (path) => fetch(`${API}/order/invoicePath`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invoicePath: path }) }).then(handleResponse),
   selectFolderFromDisk: (current) => fetch(`/api/select-folder?current=${encodeURIComponent(current || '')}`).then(handleResponse),
+  getGstRates: () => fetch(`${API}/gst`).then(handleResponse),
+  addGstRate: (gst) => fetch(`${API}/gst/${gst}`, { method: 'POST' }).then(handleResponse),
+  deleteGstRate: (id) => fetch(`${API}/gst/${id}`, { method: 'DELETE' }).then(handleResponse),
 
   // Sales
   getMonthlySales: (year, month) => fetch(`${API}/sales/month?year=${year}&month=${month}`).then(handleResponse),

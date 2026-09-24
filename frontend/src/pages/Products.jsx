@@ -20,6 +20,17 @@ export default function Products() {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [gstRates, setGstRates] = useState([18, 28]);
+
+  useEffect(() => {
+    api.getGstRates()
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          setGstRates(res.map((g) => g.gst).sort((a, b) => a - b));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Debounce search input so backend isn't bombarded on each keystroke
   useEffect(() => {
@@ -373,9 +384,10 @@ export default function Products() {
                 </div>
                 <div className="form-group">
                   <label>GST %</label>
-                  <select value={form.gst} onChange={e => set('gst', e.target.value)}>
-                    <option value={18}>18%</option>
-                    <option value={28}>28%</option>
+                  <select value={form.gst} onChange={e => set('gst', Number(e.target.value))}>
+                    {Array.from(new Set([...gstRates, Number(form.gst) || 18])).sort((a, b) => a - b).map(r => (
+                      <option key={r} value={r}>{r}%</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group">

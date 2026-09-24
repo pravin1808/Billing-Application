@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
-import { FolderOpen, Hash, CheckCircle } from 'lucide-react';
+import { FolderOpen, Hash, CheckCircle, Percent, Trash2, Plus } from 'lucide-react';
 
 export default function Settings() {
   const [invoicePath, setInvoicePath] = useState(() => {
@@ -15,6 +15,13 @@ export default function Settings() {
   const [browsing, setBrowsing] = useState(false);
   const [savingPath, setSavingPath] = useState(false);
   const [savingNum, setSavingNum] = useState(false);
+
+  // GST rates state
+  const [gstRates, setGstRates] = useState([]);
+  const [loadingGst, setLoadingGst] = useState(true);
+  const [newGst, setNewGst] = useState('');
+  const [addingGst, setAddingGst] = useState(false);
+  const [deletingGstId, setDeletingGstId] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -132,6 +139,63 @@ export default function Settings() {
     }
   };
 
+  // Load GST rates from backend
+  const loadGstRates = () => {
+    setLoadingGst(true);
+    api.getGstRates()
+      .then((res) => {
+        if (Array.isArray(res)) {
+          setGstRates(res.sort((a, b) => a.gst - b.gst));
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load GST rates:', err);
+      })
+      .finally(() => {
+        setLoadingGst(false);
+      });
+  };
+
+  useEffect(() => {
+    loadGstRates();
+  }, []);
+
+  const handleAddGst = async () => {
+    const val = parseInt(newGst, 10);
+    if (isNaN(val) || val < 0 || val > 100) {
+      return toast.error('Enter a valid GST rate between 0 and 100');
+    }
+    if (gstRates.some((g) => g.gst === val)) {
+      return toast.error(`GST rate ${val}% already exists`);
+    }
+
+    setAddingGst(true);
+    try {
+      await api.addGstRate(val);
+      toast.success(`Added ${val}% GST rate`);
+      setNewGst('');
+      loadGstRates();
+    } catch (err) {
+      toast.error(err?.message || 'Failed to add GST rate');
+    } finally {
+      setAddingGst(false);
+    }
+  };
+
+  const handleDeleteGst = async (gstId, rate) => {
+    if (!confirm(`Delete ${rate}% GST rate?`)) return;
+    setDeletingGstId(gstId);
+    try {
+      await api.deleteGstRate(gstId);
+      toast.success(`Deleted ${rate}% GST rate`);
+      loadGstRates();
+    } catch (err) {
+      toast.error(err?.message || 'Failed to delete GST rate');
+    } finally {
+      setDeletingGstId(null);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 620 }}>
       {/* Hidden fallback file input with directory support */}
@@ -222,6 +286,105 @@ export default function Settings() {
         <button className="btn btn-primary" onClick={updateNum} disabled={savingNum}>
           {savingNum ? 'Saving…' : 'Update Number'}
         </button>
+      </div>
+
+      {/* ── GST Rates (Tax Slabs) ── */}
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+          <div className="stat-icon purple" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
+            <Percent size={18} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>GST Rates (Tax Slabs)</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Manage available GST percentage options for products and billing</div>
+          </div>
+        </div>
+
+        {/* Existing rates */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 8 }}>Configured GST Rates</label>
+          {loadingGst ? (
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>Loading GST rates...</div>
+          ) : gstRates.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--muted)', padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8 }}>
+              No custom GST rates configured in database yet. Default rates (12%, 18%, 28%) are being used.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {gstRates.map((g) => (
+                <div
+                  key={g.gstId}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    background: 'var(--surface2)',
+                    border: '1px solid var(--border)',
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>{g.gst}%</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteGst(g.gstId, g.gst)}
+                    disabled={deletingGstId === g.gstId}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--danger)',
+                      cursor: 'pointer',
+                      padding: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      opacity: deletingGstId === g.gstId ? 0.4 : 0.8,
+                    }}
+                    title={`Delete ${g.gst}% rate`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add rate form */}
+        <div className="form-group" style={{ marginBottom: 14 }}>
+          <label>Add New GST Rate (%)</label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input
+              type="number"
+              value={newGst}
+              onChange={(e) => setNewGst(e.target.value)}
+              placeholder="e.g. 5, 12, 18, 28"
+              min={0}
+              max={100}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddGst();
+                }
+              }}
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleAddGst}
+              disabled={addingGst || !newGst}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+            >
+              <Plus size={16} />
+              {addingGst ? 'Adding...' : 'Add Rate'}
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+            Added GST rates will immediately be available in product creation and order billing dropdowns.
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -165,7 +165,7 @@ public class ProductService {
         productRepo.save(currentProduct);
     }
 
-    public boolean deleteProductById(int productId) {
+    public void deleteProductById(int productId) {
         Product product = productRepo.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
@@ -186,7 +186,6 @@ public class ProductService {
         }
 
         productRepo.deleteById(productId);
-        return true;
     }
 
     @Autowired
