@@ -239,6 +239,7 @@ export default function Dashboard() {
                       <tr>
                         <th>Sr. No</th>
                         <th>Customer</th>
+                        <th>Invoice No</th>
                         <th>Mobile</th>
                         <th>Date</th>
                         <th>Amount</th>
@@ -255,6 +256,7 @@ export default function Dashboard() {
                               <span className="badge badge-danger" style={{ marginLeft: 8, fontSize: 10, background: '#fee2e2', color: '#dc2626' }}>Cancelled</span>
                             )}
                           </td>
+                          <td>{o.invoiceNumber}</td>
                           <td style={{ color: 'var(--muted)' }}>{o.customerMobileNumber}</td>
                           <td style={{ color: 'var(--muted)' }}>{o.orderDate}</td>
                           <td style={{ fontWeight: 600, textDecoration: o.isCancelled ? 'line-through' : 'none' }}>

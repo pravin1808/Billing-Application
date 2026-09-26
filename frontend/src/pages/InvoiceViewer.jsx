@@ -149,7 +149,7 @@ export default function InvoiceViewer() {
           minHeight: 'calc(100vh - 170px)',
           display: 'flex',
           flexDirection: 'column',
-          background: '#1a1f26',
+          background: 'var(--pdf-bg, #1a1f26)',
         }}
       >
         {loading ? (

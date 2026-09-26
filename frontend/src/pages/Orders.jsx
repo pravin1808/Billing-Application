@@ -13,6 +13,7 @@ import {
   Search,
   AlertCircle,
   Package,
+  Layers,
   User,
   CreditCard,
   ChevronLeft,
@@ -74,7 +75,7 @@ export default function Orders() {
           setGstRates(res.map((g) => g.gst).sort((a, b) => a - b));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Debounce search input so backend isn't bombarded on each keystroke
@@ -264,6 +265,26 @@ export default function Orders() {
   const totalAmount = form.orderedProducts.reduce(
     (s, p) =>
       s + (parseFloat(p.gstPrice) || 0) * (parseInt(p.quantitySell) || 0),
+    0
+  );
+
+  const repoItems = form.orderedProducts
+    .map((item, originalIndex) => ({ item, originalIndex }))
+    .filter(({ item }) => !item.isExternal && item.productId);
+
+  const externalItems = form.orderedProducts
+    .map((item, originalIndex) => ({ item, originalIndex }))
+    .filter(({ item }) => item.isExternal || !item.productId);
+
+  const repoSubtotal = repoItems.reduce(
+    (sum, { item }) =>
+      sum + (parseFloat(item.gstPrice) || 0) * (parseInt(item.quantitySell) || 0),
+    0
+  );
+
+  const externalSubtotal = externalItems.reduce(
+    (sum, { item }) =>
+      sum + (parseFloat(item.gstPrice) || 0) * (parseInt(item.quantitySell) || 0),
     0
   );
 
@@ -502,6 +523,26 @@ export default function Orders() {
     0
   );
 
+  const repoEditItems = productsEditList
+    .map((item, originalIndex) => ({ item, originalIndex }))
+    .filter(({ item }) => !item.isExternal && item.productId);
+
+  const externalEditItems = productsEditList
+    .map((item, originalIndex) => ({ item, originalIndex }))
+    .filter(({ item }) => item.isExternal || !item.productId);
+
+  const repoEditSubtotal = repoEditItems.reduce(
+    (sum, { item }) =>
+      sum + (parseFloat(item.gstPrice) || 0) * (parseInt(item.quantitySell) || 0),
+    0
+  );
+
+  const externalEditSubtotal = externalEditItems.reduce(
+    (sum, { item }) =>
+      sum + (parseFloat(item.gstPrice) || 0) * (parseInt(item.quantitySell) || 0),
+    0
+  );
+
   const submitCustomerEdit = async () => {
     if (!customerEditForm.customerName.trim()) {
       return toast.error('Customer name is required');
@@ -718,6 +759,7 @@ export default function Orders() {
                 <tr>
                   <th>Sr. No</th>
                   <th>Customer</th>
+                  <th>Invoice No</th>
                   <th>Mobile</th>
                   <th>Date</th>
                   <th>Amount</th>
@@ -732,6 +774,7 @@ export default function Orders() {
                       <span >{page * pageSize + index + 1}</span>
                     </td>
                     <td style={{ fontWeight: 500 }}>{o.customerName}</td>
+                    <td>#{o.invoiceNumber}</td>
                     <td style={{ color: 'var(--muted)' }}>{o.customerMobileNumber}</td>
                     <td style={{ color: 'var(--muted)', fontSize: 12 }}>{o.orderDate}</td>
                     <td style={{ fontWeight: 600 }}>
@@ -742,9 +785,8 @@ export default function Orders() {
                         <span className="badge badge-red">CANCELLED</span>
                       ) : (
                         <span
-                          className={`badge ${
-                            o.paymentMethod === 'CASH' ? 'badge-green' : 'badge-blue'
-                          }`}
+                          className={`badge ${o.paymentMethod === 'CASH' ? 'badge-green' : 'badge-blue'
+                            }`}
                         >
                           {o.paymentMethod}
                         </span>
@@ -860,7 +902,7 @@ export default function Orders() {
         <div className="modal-backdrop" onClick={() => setModal(false)}>
           <div
             className="modal"
-            style={{ width: 1100, maxWidth: '96vw', maxHeight: '92vh' }}
+            style={{ width: 1380, maxWidth: '96vw', maxHeight: '92vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
@@ -873,7 +915,7 @@ export default function Orders() {
             <div className="modal-body" style={{ padding: '18px 24px' }}>
               <div className="order-layout-grid">
                 {/* ── LEFT COLUMN: Customer Section & Summary ── */}
-                <div className="order-customer-panel">
+                <div className="order-customer-panel" style={{ position: 'sticky', top: 0, alignSelf: 'start' }}>
                   <h3>
                     <User size={15} style={{ color: 'var(--accent)' }} />
                     Customer Information
@@ -923,7 +965,15 @@ export default function Orders() {
 
                   <div className="summary-card">
                     <div className="summary-row">
-                      <span>Items Added:</span>
+                      <span>Inventory Items:</span>
+                      <strong>{repoItems.length}</strong>
+                    </div>
+                    <div className="summary-row">
+                      <span>External Items:</span>
+                      <strong>{externalItems.length}</strong>
+                    </div>
+                    <div className="summary-row" style={{ borderTop: '1px dashed var(--border)', paddingTop: 6, marginTop: 4 }}>
+                      <span>Total Items:</span>
                       <strong>{form.orderedProducts.length}</strong>
                     </div>
                     <div className="summary-row total">
@@ -1069,9 +1119,8 @@ export default function Orders() {
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span
-                                  className={`stock-pill ${
-                                    isOut ? 'out-stock' : isLow ? 'low-stock' : 'in-stock'
-                                  }`}
+                                  className={`stock-pill ${isOut ? 'out-stock' : isLow ? 'low-stock' : 'in-stock'
+                                    }`}
                                 >
                                   {p.quantity > 0 ? `${p.quantity} in stock` : 'Out of stock'}
                                 </span>
@@ -1091,27 +1140,40 @@ export default function Orders() {
                     )}
                   </div>
 
-                  {/* Ordered Items Table */}
+                  {/* ── 1. INVENTORY PRODUCTS (FROM STOCK) ── */}
                   <div className="order-items-box">
-                    <div className="order-items-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div
+                      className="order-items-header"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Package size={15} style={{ color: 'var(--accent)' }} />
-                        <h3 style={{ margin: 0 }}>Ordered Items ({form.orderedProducts.length})</h3>
+                        <Package size={16} style={{ color: 'var(--accent)' }} />
+                        <h3 style={{ margin: 0 }}>Inventory Tyres ({repoItems.length})</h3>
+                        <span className="badge badge-blue" style={{ fontSize: 11 }}>
+                          In-Stock Tyres
+                        </span>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={addExternalItem}
-                        title="Add external product (not in inventory, won't deduct stock)"
-                      >
-                        <Plus size={13} /> Add External Product
-                      </button>
+                      {repoItems.length > 0 && (
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>
+                          Subtotal: ₹{repoSubtotal.toLocaleString('en-IN', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      )}
                     </div>
 
-                    {form.orderedProducts.length === 0 ? (
+                    {repoItems.length === 0 ? (
                       <div
                         style={{
-                          padding: '30px 16px',
+                          padding: '24px 16px',
                           textAlign: 'center',
                           color: 'var(--muted)',
                           fontSize: 13,
@@ -1120,10 +1182,10 @@ export default function Orders() {
                         }}
                       >
                         <ShoppingCart
-                          size={28}
-                          style={{ margin: '0 auto 8px', opacity: 0.4, display: 'block' }}
+                          size={24}
+                          style={{ margin: '0 auto 6px', opacity: 0.4, display: 'block' }}
                         />
-                        No products added yet.
+                        No inventory tyres added yet.
                         <div style={{ fontSize: 12, marginTop: 4 }}>
                           Search tyres above and click <strong>"+ Add to Order"</strong>.
                         </div>
@@ -1133,22 +1195,24 @@ export default function Orders() {
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '2.4fr 1.2fr 0.8fr 1.2fr 1fr 34px',
+                            gridTemplateColumns: '2.5fr 1.2fr 0.9fr 1.2fr 0.8fr 1.1fr 36px',
                             gap: 8,
                             marginBottom: 8,
                             padding: '0 6px',
                           }}
                         >
-                          {['Description', 'Size', 'GST %', 'Rate (incl. GST)', 'Qty', ''].map(
-                            (h) => (
+                          {['Description', 'Size', 'GST %', 'Rate (incl. GST)', 'Qty', 'Total', ''].map(
+                            (h, idx) => (
                               <span
-                                key={h}
+                                key={idx}
                                 style={{
                                   fontSize: 11,
                                   color: 'var(--muted)',
                                   fontWeight: 600,
                                   textTransform: 'uppercase',
                                   letterSpacing: '.04em',
+                                  textAlign: h === 'Total' ? 'right' : 'left',
+                                  paddingRight: h === 'Total' ? 6 : 0,
                                 }}
                               >
                                 {h}
@@ -1158,13 +1222,13 @@ export default function Orders() {
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {form.orderedProducts.map((item, i) => {
+                          {repoItems.map(({ item, originalIndex }) => {
                             const hasStock = item.stock !== null && item.stock !== undefined;
                             const isOver = hasStock && item.quantitySell > item.stock;
 
                             return (
                               <div
-                                key={i}
+                                key={originalIndex}
                                 style={{
                                   padding: '8px 10px',
                                   background: 'var(--surface)',
@@ -1177,28 +1241,28 @@ export default function Orders() {
                                 <div
                                   style={{
                                     display: 'grid',
-                                    gridTemplateColumns: '2.4fr 1.2fr 0.8fr 1.2fr 1fr 34px',
+                                    gridTemplateColumns: '2.5fr 1.2fr 0.9fr 1.2fr 0.8fr 1.1fr 36px',
                                     gap: 8,
                                     alignItems: 'center',
                                   }}
                                 >
                                   <input
                                     value={item.description}
-                                    onChange={(e) => setItem(i, 'description', e.target.value)}
+                                    onChange={(e) => setItem(originalIndex, 'description', e.target.value)}
                                     placeholder="Tyre description"
                                     style={{ fontSize: 13 }}
                                   />
 
                                   <input
                                     value={item.size}
-                                    onChange={(e) => setItem(i, 'size', e.target.value)}
+                                    onChange={(e) => setItem(originalIndex, 'size', e.target.value)}
                                     placeholder="Size (e.g. 195/65)"
                                     style={{ fontSize: 13 }}
                                   />
 
                                   <select
                                     value={item.gst}
-                                    onChange={(e) => setItem(i, 'gst', +e.target.value)}
+                                    onChange={(e) => setItem(originalIndex, 'gst', +e.target.value)}
                                     style={{ fontSize: 13 }}
                                   >
                                     {Array.from(new Set([...gstRates, Number(item.gst) || 18])).sort((a, b) => a - b).map((rate) => (
@@ -1209,7 +1273,7 @@ export default function Orders() {
                                   <input
                                     type="number"
                                     value={item.gstPrice}
-                                    onChange={(e) => setItem(i, 'gstPrice', e.target.value)}
+                                    onChange={(e) => setItem(originalIndex, 'gstPrice', e.target.value)}
                                     placeholder="₹ Price"
                                     style={{ fontSize: 13 }}
                                     autoFocus={!item.gstPrice}
@@ -1220,15 +1284,30 @@ export default function Orders() {
                                     value={item.quantitySell}
                                     min={1}
                                     onChange={(e) =>
-                                      setItem(i, 'quantitySell', e.target.value)
+                                      setItem(originalIndex, 'quantitySell', e.target.value)
                                     }
                                     style={{ fontSize: 13 }}
                                   />
 
+                                  <div
+                                    style={{
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: 'var(--text)',
+                                      textAlign: 'right',
+                                      paddingRight: 6,
+                                    }}
+                                  >
+                                    ₹{((parseFloat(item.gstPrice) || 0) * (parseInt(item.quantitySell) || 0)).toLocaleString('en-IN', {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </div>
+
                                   <button
                                     type="button"
                                     className="btn btn-danger btn-sm"
-                                    onClick={() => removeItem(i)}
+                                    onClick={() => removeItem(originalIndex)}
                                     title="Remove item"
                                     style={{ padding: '6px' }}
                                   >
@@ -1245,44 +1324,32 @@ export default function Orders() {
                                     marginTop: 4,
                                   }}
                                 >
-                                  {item.isExternal || !item.productId ? (
-                                    <span
-                                      className="badge badge-purple"
-                                      style={{ fontSize: 10, padding: '1px 6px' }}
-                                    >
-                                      External Item (Stock not deducted)
-                                    </span>
-                                  ) : (
+                                  <span
+                                    className="badge badge-blue"
+                                    style={{ fontSize: 10, padding: '1px 6px' }}
+                                  >
+                                    Inventory Tyre
+                                  </span>
+                                  {hasStock && (
                                     <>
                                       <span
-                                        className="badge badge-blue"
-                                        style={{ fontSize: 10, padding: '1px 6px' }}
+                                        className={`stock-pill ${item.stock <= 0
+                                            ? 'out-stock'
+                                            : item.stock <= 5
+                                              ? 'low-stock'
+                                              : 'in-stock'
+                                          }`}
+                                        style={{ fontSize: 10, padding: '1px 5px' }}
                                       >
-                                        Inventory Tyre
+                                        {item.stock > 0
+                                          ? `${item.stock} in stock`
+                                          : 'Out of stock'}
                                       </span>
-                                      {hasStock && (
-                                        <>
-                                          <span
-                                            className={`stock-pill ${
-                                              item.stock <= 0
-                                                ? 'out-stock'
-                                                : item.stock <= 5
-                                                ? 'low-stock'
-                                                : 'in-stock'
-                                            }`}
-                                            style={{ fontSize: 10, padding: '1px 5px' }}
-                                          >
-                                            {item.stock > 0
-                                              ? `${item.stock} in stock`
-                                              : 'Out of stock'}
-                                          </span>
-                                          {isOver && (
-                                            <span className="stock-warning">
-                                              <AlertCircle size={12} />
-                                              Requested ({item.quantitySell}) exceeds current stock ({item.stock})
-                                            </span>
-                                          )}
-                                        </>
+                                      {isOver && (
+                                        <span className="stock-warning">
+                                          <AlertCircle size={12} />
+                                          Requested ({item.quantitySell}) exceeds current stock ({item.stock})
+                                        </span>
                                       )}
                                     </>
                                   )}
@@ -1290,6 +1357,227 @@ export default function Orders() {
                               </div>
                             );
                           })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* ── 2. EXTERNAL PRODUCTS (DIRECT BILLING) ── */}
+                  <div
+                    className="order-items-box"
+                    style={{
+                      border: '1px solid rgba(168,85,247,0.3)',
+                      background: 'rgba(168,85,247,0.02)',
+                    }}
+                  >
+                    <div
+                      className="order-items-header"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Layers size={16} style={{ color: '#a855f7' }} />
+                        <h3 style={{ margin: 0 }}>External Products ({externalItems.length})</h3>
+                        <span className="badge badge-purple" style={{ fontSize: 11 }}>
+                          Direct Billing • Stock Not Deducted
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {externalItems.length > 0 && (
+                          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>
+                            Subtotal: ₹{externalSubtotal.toLocaleString('en-IN', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={addExternalItem}
+                          style={{
+                            background: 'rgba(168,85,247,0.15)',
+                            color: '#c084fc',
+                            border: '1px solid rgba(168,85,247,0.3)',
+                          }}
+                          title="Add external product (not in inventory, won't deduct stock)"
+                        >
+                          <Plus size={13} /> Add External Product
+                        </button>
+                      </div>
+                    </div>
+
+                    {externalItems.length === 0 ? (
+                      <div
+                        style={{
+                          padding: '20px 16px',
+                          textAlign: 'center',
+                          color: 'var(--muted)',
+                          fontSize: 13,
+                          border: '1px dashed rgba(168,85,247,0.3)',
+                          borderRadius: 8,
+                          background: 'rgba(168,85,247,0.02)',
+                        }}
+                      >
+                        <p style={{ margin: '0 0 8px 0' }}>
+                          No external products added. Bill tyres, tubes, or services not tracked in inventory stock.
+                        </p>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={addExternalItem}
+                          style={{
+                            background: 'rgba(168,85,247,0.15)',
+                            color: '#c084fc',
+                            border: '1px solid rgba(168,85,247,0.3)',
+                          }}
+                        >
+                          <Plus size={13} /> Add External Product
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '2.5fr 1.2fr 0.9fr 1.2fr 0.8fr 1.1fr 36px',
+                            gap: 8,
+                            marginBottom: 8,
+                            padding: '0 6px',
+                          }}
+                        >
+                          {['Description', 'Size', 'GST %', 'Rate (incl. GST)', 'Qty', 'Total', ''].map(
+                            (h, idx) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  fontSize: 11,
+                                  color: 'var(--muted)',
+                                  fontWeight: 600,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '.04em',
+                                  textAlign: h === 'Total' ? 'right' : 'left',
+                                  paddingRight: h === 'Total' ? 6 : 0,
+                                }}
+                              >
+                                {h}
+                              </span>
+                            )
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {externalItems.map(({ item, originalIndex }) => (
+                            <div
+                              key={originalIndex}
+                              style={{
+                                padding: '8px 10px',
+                                background: 'var(--surface)',
+                                borderRadius: 8,
+                                border: '1px solid rgba(168,85,247,0.25)',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '2.5fr 1.2fr 0.9fr 1.2fr 0.8fr 1.1fr 36px',
+                                  gap: 8,
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <input
+                                  value={item.description}
+                                  onChange={(e) => setItem(originalIndex, 'description', e.target.value)}
+                                  placeholder="e.g. Tube, Patch, Wheel Alignment"
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <input
+                                  value={item.size}
+                                  onChange={(e) => setItem(originalIndex, 'size', e.target.value)}
+                                  placeholder="Size / Model"
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <select
+                                  value={item.gst}
+                                  onChange={(e) => setItem(originalIndex, 'gst', +e.target.value)}
+                                  style={{ fontSize: 13 }}
+                                >
+                                  {Array.from(new Set([...gstRates, Number(item.gst) || 18])).sort((a, b) => a - b).map((rate) => (
+                                    <option key={rate} value={rate}>{rate}%</option>
+                                  ))}
+                                </select>
+
+                                <input
+                                  type="number"
+                                  value={item.gstPrice}
+                                  onChange={(e) => setItem(originalIndex, 'gstPrice', e.target.value)}
+                                  placeholder="₹ Price"
+                                  style={{ fontSize: 13 }}
+                                  autoFocus={!item.gstPrice}
+                                />
+
+                                <input
+                                  type="number"
+                                  value={item.quantitySell}
+                                  min={1}
+                                  onChange={(e) =>
+                                    setItem(originalIndex, 'quantitySell', e.target.value)
+                                  }
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: 'var(--text)',
+                                    textAlign: 'right',
+                                    paddingRight: 6,
+                                  }}
+                                >
+                                  ₹{((parseFloat(item.gstPrice) || 0) * (parseInt(item.quantitySell) || 0)).toLocaleString('en-IN', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => removeItem(originalIndex)}
+                                  title="Remove item"
+                                  style={{ padding: '6px' }}
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  fontSize: 11,
+                                  marginTop: 4,
+                                }}
+                              >
+                                <span
+                                  className="badge badge-purple"
+                                  style={{ fontSize: 10, padding: '1px 6px' }}
+                                >
+                                  External Item (Direct Billing • Stock not deducted)
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </>
                     )}
@@ -1306,7 +1594,7 @@ export default function Orders() {
         <div className="modal-backdrop" onClick={() => setEditModal(false)}>
           <div
             className="modal"
-            style={{ width: 1100, maxWidth: '96vw', maxHeight: '92vh' }}
+            style={{ width: 1380, maxWidth: '96vw', maxHeight: '92vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -1496,7 +1784,15 @@ export default function Orders() {
 
                     <div className="summary-card">
                       <div className="summary-row">
-                        <span>Items in Order:</span>
+                        <span>Inventory Items:</span>
+                        <strong>{repoEditItems.length}</strong>
+                      </div>
+                      <div className="summary-row">
+                        <span>External Items:</span>
+                        <strong>{externalEditItems.length}</strong>
+                      </div>
+                      <div className="summary-row" style={{ borderTop: '1px dashed var(--border)', paddingTop: 6, marginTop: 4 }}>
+                        <span>Total Items:</span>
                         <strong>{productsEditList.length}</strong>
                       </div>
                       <div className="summary-row total">
@@ -1643,9 +1939,8 @@ export default function Orders() {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                   <span
-                                    className={`stock-pill ${
-                                      isOut ? 'out-stock' : isLow ? 'low-stock' : 'in-stock'
-                                    }`}
+                                    className={`stock-pill ${isOut ? 'out-stock' : isLow ? 'low-stock' : 'in-stock'
+                                      }`}
                                   >
                                     {p.quantity > 0 ? `${p.quantity} in stock` : 'Out of stock'}
                                   </span>
@@ -1665,171 +1960,414 @@ export default function Orders() {
                       )}
                     </div>
 
-                    {/* Ordered Items Table */}
-                    <div className="order-items-box">
-                      <div className="order-items-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Package size={15} style={{ color: 'var(--accent)' }} />
-                          <h3 style={{ margin: 0 }}>Current Items in Order ({productsEditList.length})</h3>
+                  {/* ── 1. INVENTORY PRODUCTS (FROM STOCK) ── */}
+                  <div className="order-items-box">
+                    <div
+                      className="order-items-header"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Package size={16} style={{ color: 'var(--accent)' }} />
+                        <h3 style={{ margin: 0 }}>Inventory Tyres ({repoEditItems.length})</h3>
+                        <span className="badge badge-blue" style={{ fontSize: 11 }}>
+                          In-Stock Tyres
+                        </span>
+                      </div>
+                      {repoEditItems.length > 0 && (
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>
+                          Subtotal: ₹{repoEditSubtotal.toLocaleString('en-IN', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      )}
+                    </div>
+
+                    {repoEditItems.length === 0 ? (
+                      <div
+                        style={{
+                          padding: '24px 16px',
+                          textAlign: 'center',
+                          color: 'var(--muted)',
+                          fontSize: 13,
+                          border: '1px dashed var(--border)',
+                          borderRadius: 8,
+                        }}
+                      >
+                        <ShoppingCart
+                          size={24}
+                          style={{ margin: '0 auto 6px', opacity: 0.4, display: 'block' }}
+                        />
+                        No inventory tyres in this order.
+                        <div style={{ fontSize: 12, marginTop: 4 }}>
+                          Search tyres above and click <strong>"+ Add to Order"</strong>.
                         </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '2.5fr 1.2fr 0.9fr 1.2fr 0.8fr 1.1fr 36px',
+                            gap: 8,
+                            marginBottom: 8,
+                            padding: '0 6px',
+                          }}
+                        >
+                          {['Description', 'Size', 'GST %', 'Rate (incl. GST)', 'Qty', 'Total', ''].map(
+                            (h, idx) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  fontSize: 11,
+                                  color: 'var(--muted)',
+                                  fontWeight: 600,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '.04em',
+                                  textAlign: h === 'Total' ? 'right' : 'left',
+                                  paddingRight: h === 'Total' ? 6 : 0,
+                                }}
+                              >
+                                {h}
+                              </span>
+                            )
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {repoEditItems.map(({ item, originalIndex }) => (
+                            <div
+                              key={originalIndex}
+                              style={{
+                                padding: '8px 10px',
+                                background: 'var(--surface)',
+                                borderRadius: 8,
+                                border: '1px solid var(--border)',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '2.5fr 1.2fr 0.9fr 1.2fr 0.8fr 1.1fr 36px',
+                                  gap: 8,
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <input
+                                  value={item.description}
+                                  onChange={(e) => setProductsEditItem(originalIndex, 'description', e.target.value)}
+                                  placeholder="Tyre description"
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <input
+                                  value={item.size}
+                                  onChange={(e) => setProductsEditItem(originalIndex, 'size', e.target.value)}
+                                  placeholder="Size (e.g. 195/65)"
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <select
+                                  value={item.gst}
+                                  onChange={(e) => setProductsEditItem(originalIndex, 'gst', +e.target.value)}
+                                  style={{ fontSize: 13 }}
+                                >
+                                  {Array.from(new Set([...gstRates, Number(item.gst) || 18])).sort((a, b) => a - b).map((rate) => (
+                                    <option key={rate} value={rate}>{rate}%</option>
+                                  ))}
+                                </select>
+
+                                <input
+                                  type="number"
+                                  value={item.gstPrice}
+                                  onChange={(e) => setProductsEditItem(originalIndex, 'gstPrice', e.target.value)}
+                                  placeholder="₹ Price"
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <input
+                                  type="number"
+                                  value={item.quantitySell}
+                                  min={1}
+                                  onChange={(e) =>
+                                    setProductsEditItem(originalIndex, 'quantitySell', e.target.value)
+                                  }
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: 'var(--text)',
+                                    textAlign: 'right',
+                                    paddingRight: 6,
+                                  }}
+                                >
+                                  ₹{((parseFloat(item.gstPrice) || 0) * (parseInt(item.quantitySell) || 0)).toLocaleString('en-IN', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => removeProductsEditItem(originalIndex)}
+                                  title="Remove item"
+                                  style={{ padding: '6px' }}
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  fontSize: 11,
+                                  marginTop: 4,
+                                }}
+                              >
+                                <span
+                                  className="badge badge-blue"
+                                  style={{ fontSize: 10, padding: '1px 6px' }}
+                                >
+                                  Inventory Tyre (Stock tracked)
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* ── 2. EXTERNAL PRODUCTS (DIRECT BILLING) ── */}
+                  <div
+                    className="order-items-box"
+                    style={{
+                      border: '1px solid rgba(168,85,247,0.3)',
+                      background: 'rgba(168,85,247,0.02)',
+                    }}
+                  >
+                    <div
+                      className="order-items-header"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Layers size={16} style={{ color: '#a855f7' }} />
+                        <h3 style={{ margin: 0 }}>External Products ({externalEditItems.length})</h3>
+                        <span className="badge badge-purple" style={{ fontSize: 11 }}>
+                          Direct Billing • Stock Not Deducted
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {externalEditItems.length > 0 && (
+                          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>
+                            Subtotal: ₹{externalEditSubtotal.toLocaleString('en-IN', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                        )}
                         <button
                           type="button"
-                          className="btn btn-ghost btn-sm"
+                          className="btn btn-sm"
                           onClick={addExternalItemToEdit}
+                          style={{
+                            background: 'rgba(168,85,247,0.15)',
+                            color: '#c084fc',
+                            border: '1px solid rgba(168,85,247,0.3)',
+                          }}
                           title="Add external product (not in inventory, won't deduct stock)"
                         >
                           <Plus size={13} /> Add External Product
                         </button>
                       </div>
+                    </div>
 
-                      {productsEditList.length === 0 ? (
-                        <div
+                    {externalEditItems.length === 0 ? (
+                      <div
+                        style={{
+                          padding: '20px 16px',
+                          textAlign: 'center',
+                          color: 'var(--muted)',
+                          fontSize: 13,
+                          border: '1px dashed rgba(168,85,247,0.3)',
+                          borderRadius: 8,
+                          background: 'rgba(168,85,247,0.02)',
+                        }}
+                      >
+                        <p style={{ margin: '0 0 8px 0' }}>
+                          No external products in this order.
+                        </p>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={addExternalItemToEdit}
                           style={{
-                            padding: '30px 16px',
-                            textAlign: 'center',
-                            color: 'var(--muted)',
-                            fontSize: 13,
-                            border: '1px dashed var(--border)',
-                            borderRadius: 8,
+                            background: 'rgba(168,85,247,0.15)',
+                            color: '#c084fc',
+                            border: '1px solid rgba(168,85,247,0.3)',
                           }}
                         >
-                          <ShoppingCart
-                            size={28}
-                            style={{ margin: '0 auto 8px', opacity: 0.4, display: 'block' }}
-                          />
-                          No products left in order. Add at least one tyre.
-                        </div>
-                      ) : (
-                        <>
-                          <div
-                            style={{
-                              display: 'grid',
-                              gridTemplateColumns: '2.4fr 1.2fr 0.8fr 1.2fr 1fr 34px',
-                              gap: 8,
-                              marginBottom: 8,
-                              padding: '0 6px',
-                            }}
-                          >
-                            {['Description', 'Size', 'GST %', 'Rate (incl. GST)', 'Qty', ''].map(
-                              (h) => (
-                                <span
-                                  key={h}
-                                  style={{
-                                    fontSize: 11,
-                                    color: 'var(--muted)',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '.04em',
-                                  }}
-                                >
-                                  {h}
-                                </span>
-                              )
-                            )}
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {productsEditList.map((item, i) => (
-                              <div
-                                key={i}
+                          <Plus size={13} /> Add External Product
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '2.5fr 1.2fr 0.9fr 1.2fr 0.8fr 1.1fr 36px',
+                            gap: 8,
+                            marginBottom: 8,
+                            padding: '0 6px',
+                          }}
+                        >
+                          {['Description', 'Size', 'GST %', 'Rate (incl. GST)', 'Qty', 'Total', ''].map(
+                            (h, idx) => (
+                              <span
+                                key={idx}
                                 style={{
-                                  padding: '8px 10px',
-                                  background: 'var(--surface)',
-                                  borderRadius: 8,
-                                  border: '1px solid var(--border)',
+                                  fontSize: 11,
+                                  color: 'var(--muted)',
+                                  fontWeight: 600,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '.04em',
+                                  textAlign: h === 'Total' ? 'right' : 'left',
+                                  paddingRight: h === 'Total' ? 6 : 0,
                                 }}
                               >
+                                {h}
+                              </span>
+                            )
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {externalEditItems.map(({ item, originalIndex }) => (
+                            <div
+                              key={originalIndex}
+                              style={{
+                                padding: '8px 10px',
+                                background: 'var(--surface)',
+                                borderRadius: 8,
+                                border: '1px solid rgba(168,85,247,0.25)',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '2.5fr 1.2fr 0.9fr 1.2fr 0.8fr 1.1fr 36px',
+                                  gap: 8,
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <input
+                                  value={item.description}
+                                  onChange={(e) => setProductsEditItem(originalIndex, 'description', e.target.value)}
+                                  placeholder="Tyre description"
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <input
+                                  value={item.size}
+                                  onChange={(e) => setProductsEditItem(originalIndex, 'size', e.target.value)}
+                                  placeholder="Size (e.g. 195/65)"
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <select
+                                  value={item.gst}
+                                  onChange={(e) => setProductsEditItem(originalIndex, 'gst', +e.target.value)}
+                                  style={{ fontSize: 13 }}
+                                >
+                                  {Array.from(new Set([...gstRates, Number(item.gst) || 18])).sort((a, b) => a - b).map((rate) => (
+                                    <option key={rate} value={rate}>{rate}%</option>
+                                  ))}
+                                </select>
+
+                                <input
+                                  type="number"
+                                  value={item.gstPrice}
+                                  onChange={(e) => setProductsEditItem(originalIndex, 'gstPrice', e.target.value)}
+                                  placeholder="₹ Price"
+                                  style={{ fontSize: 13 }}
+                                />
+
+                                <input
+                                  type="number"
+                                  value={item.quantitySell}
+                                  min={1}
+                                  onChange={(e) =>
+                                    setProductsEditItem(originalIndex, 'quantitySell', e.target.value)
+                                  }
+                                  style={{ fontSize: 13 }}
+                                />
+
                                 <div
                                   style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '2.4fr 1.2fr 0.8fr 1.2fr 1fr 34px',
-                                    gap: 8,
-                                    alignItems: 'center',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: 'var(--text)',
+                                    textAlign: 'right',
+                                    paddingRight: 6,
                                   }}
                                 >
-                                  <input
-                                    value={item.description}
-                                    onChange={(e) => setProductsEditItem(i, 'description', e.target.value)}
-                                    placeholder="Tyre description"
-                                    style={{ fontSize: 13 }}
-                                  />
-
-                                  <input
-                                    value={item.size}
-                                    onChange={(e) => setProductsEditItem(i, 'size', e.target.value)}
-                                    placeholder="Size (e.g. 195/65)"
-                                    style={{ fontSize: 13 }}
-                                  />
-
-                                  <select
-                                    value={item.gst}
-                                    onChange={(e) => setProductsEditItem(i, 'gst', +e.target.value)}
-                                    style={{ fontSize: 13 }}
-                                  >
-                                    {Array.from(new Set([...gstRates, Number(item.gst) || 18])).sort((a, b) => a - b).map((rate) => (
-                                      <option key={rate} value={rate}>{rate}%</option>
-                                    ))}
-                                  </select>
-
-                                  <input
-                                    type="number"
-                                    value={item.gstPrice}
-                                    onChange={(e) => setProductsEditItem(i, 'gstPrice', e.target.value)}
-                                    placeholder="₹ Price"
-                                    style={{ fontSize: 13 }}
-                                  />
-
-                                  <input
-                                    type="number"
-                                    value={item.quantitySell}
-                                    min={1}
-                                    onChange={(e) =>
-                                      setProductsEditItem(i, 'quantitySell', e.target.value)
-                                    }
-                                    style={{ fontSize: 13 }}
-                                  />
-
-                                  <button
-                                    type="button"
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() => removeProductsEditItem(i)}
-                                    title="Remove item"
-                                    style={{ padding: '6px' }}
-                                  >
-                                    <X size={13} />
-                                  </button>
+                                  ₹{((parseFloat(item.gstPrice) || 0) * (parseInt(item.quantitySell) || 0)).toLocaleString('en-IN', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
                                 </div>
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    fontSize: 11,
-                                    marginTop: 4,
-                                  }}
+
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => removeProductsEditItem(originalIndex)}
+                                  title="Remove item"
+                                  style={{ padding: '6px' }}
                                 >
-                                  {item.isExternal || !item.productId ? (
-                                    <span
-                                      className="badge badge-purple"
-                                      style={{ fontSize: 10, padding: '1px 6px' }}
-                                    >
-                                      External Item (Stock not deducted)
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className="badge badge-blue"
-                                      style={{ fontSize: 10, padding: '1px 6px' }}
-                                    >
-                                      Inventory Tyre (Stock tracked)
-                                    </span>
-                                  )}
-                                </div>
+                                  <X size={13} />
+                                </button>
                               </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  fontSize: 11,
+                                  marginTop: 4,
+                                }}
+                              >
+                                <span
+                                  className="badge badge-purple"
+                                  style={{ fontSize: 10, padding: '1px 6px' }}
+                                >
+                                  External Item (Stock not deducted)
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                   </div>
                 </div>
               )}

@@ -164,7 +164,7 @@ export default function InvoiceModal({ orderId, onClose }) {
           style={{
             flex: 1,
             position: 'relative',
-            background: '#23272e',
+            background: 'var(--pdf-bg, #23272e)',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',

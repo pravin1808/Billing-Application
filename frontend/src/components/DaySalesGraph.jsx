@@ -71,7 +71,9 @@ export default function DaySalesGraph() {
 
   // Statistics
   const totalSales = salesData.reduce((acc, d) => acc + d.amount, 0);
-  const avgSales = salesData.length ? totalSales / salesData.length : 0;
+  const isToday = selectedDate === todayStr;
+  const currentDayEntry = salesData.find((d) => d.key === selectedDate);
+  const todaysSales = currentDayEntry ? currentDayEntry.amount : 0;
   const maxSaleItem = salesData.reduce(
     (max, d) => (d.amount > max.amount ? d : max),
     { amount: 0, fullLabel: 'N/A' }
@@ -211,9 +213,11 @@ export default function DaySalesGraph() {
           borderRadius: 8,
           border: '1px solid var(--border)'
         }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>Daily Average</div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>
-            {formatCurrency(avgSales)}
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase' }}>
+            {isToday ? "Today's Sales" : "Selected Day"}
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--accent)', marginTop: 2 }}>
+            {formatCurrency(todaysSales)}
           </div>
         </div>
 
@@ -233,7 +237,7 @@ export default function DaySalesGraph() {
       {/* SVG Linear Graph */}
       <div style={{
         position: 'relative',
-        background: '#0f141c',
+        background: 'var(--chart-bg)',
         borderRadius: 'var(--radius)',
         border: '1px solid var(--border)',
         padding: '16px 8px 8px 8px',
@@ -243,7 +247,7 @@ export default function DaySalesGraph() {
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: 'rgba(15, 20, 28, 0.7)',
+            background: 'var(--chart-overlay)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -263,12 +267,12 @@ export default function DaySalesGraph() {
             left: Math.min(Math.max(activePoint.x - 65, 8), svgWidth - 150),
             top: 14,
             pointerEvents: 'none',
-            background: 'rgba(22, 27, 34, 0.95)',
+            background: 'var(--chart-tooltip)',
             backdropFilter: 'blur(8px)',
             border: '1px solid var(--blue)',
             borderRadius: 6,
             padding: '6px 10px',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+            boxShadow: 'var(--shadow-md)',
             zIndex: 5,
             minWidth: 130
           }}>
@@ -323,7 +327,7 @@ export default function DaySalesGraph() {
                   y1={yPos}
                   x2={padLeft + chartWidth}
                   y2={yPos}
-                  stroke="#21262d"
+                  stroke="var(--chart-grid)"
                   strokeDasharray={val === 0 ? 'none' : '3 3'}
                   strokeWidth="1"
                 />
@@ -412,7 +416,7 @@ export default function DaySalesGraph() {
                   cy={pt.y}
                   r={isHovered ? 5 : isPeak ? 4 : 3}
                   fill={isPeak ? '#3fb950' : '#38bdf8'}
-                  stroke="#0f141c"
+                  stroke="var(--chart-bg)"
                   strokeWidth="2"
                 />
               </g>

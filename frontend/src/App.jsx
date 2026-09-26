@@ -7,6 +7,8 @@ import Orders from './pages/Orders';
 import Sales from './pages/Sales';
 import InvoiceViewer from './pages/InvoiceViewer';
 import SettingsPage from './pages/Settings';
+import { ThemeProvider } from './context/ThemeContext';
+import ThemeToggle from './components/ThemeToggle';
 import './index.css';
 
 const navItems = [
@@ -22,7 +24,7 @@ const pageTitles = {
   '/products':  { title: 'Products',     sub: 'Manage your tyre inventory' },
   '/orders':    { title: 'Orders',       sub: 'Billing & invoices' },
   '/sales':     { title: 'Sales Analytics', sub: 'Performance & 12-month revenue trend' },
-  '/settings':  { title: 'Settings',     sub: 'Configure invoice preferences' },
+  '/settings':  { title: 'Settings',     sub: 'Configure shop preferences and theme' },
 };
 
 function Shell() {
@@ -57,6 +59,9 @@ function Shell() {
             <div className="topbar-title">{meta.title}</div>
             <div className="topbar-sub">{meta.sub}</div>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <ThemeToggle />
+          </div>
         </header>
         <main className="page">
           <Routes>
@@ -75,15 +80,23 @@ function Shell() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: { background: '#1e2530', color: '#e6edf3', border: '1px solid #30363d' },
-          duration: 3000,
-        }}
-      />
-      <Shell />
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: 'var(--surface2)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              boxShadow: 'var(--shadow-md)',
+            },
+            duration: 3000,
+          }}
+        />
+        <Shell />
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
+

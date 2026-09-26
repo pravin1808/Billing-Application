@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
-import { FolderOpen, Hash, CheckCircle, Percent, Trash2, Plus } from 'lucide-react';
+import { FolderOpen, Hash, CheckCircle, Percent, Trash2, Plus, Sun, Moon, Palette } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Settings() {
+  const { theme, setTheme } = useTheme();
   const [invoicePath, setInvoicePath] = useState(() => {
     return localStorage.getItem('tyreshop_invoice_path') || '';
   });
@@ -384,6 +386,107 @@ export default function Settings() {
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
             Added GST rates will immediately be available in product creation and order billing dropdowns.
           </div>
+        </div>
+      </div>
+
+      {/* ── Appearance & Theme ── */}
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+          <div className="stat-icon orange">
+            <Palette size={18} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>Appearance & Theme</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Choose between Dark mode and Light mode</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+          {/* Dark Mode Option */}
+          <button
+            type="button"
+            onClick={() => {
+              setTheme('dark');
+              toast.success('Dark theme activated');
+            }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 10,
+              padding: '16px 14px',
+              borderRadius: 'var(--radius)',
+              border: `2px solid ${theme === 'dark' ? 'var(--accent)' : 'var(--border)'}`,
+              background: theme === 'dark' ? 'var(--accent-dim)' : 'var(--surface2)',
+              cursor: 'pointer',
+              color: 'var(--text)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <div style={{
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              background: '#0d1117',
+              border: '1px solid #30363d',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#38bdf8'
+            }}>
+              <Moon size={18} />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>Dark Theme</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>High contrast, easier on the eyes</div>
+            </div>
+            {theme === 'dark' && (
+              <span className="badge badge-orange" style={{ fontSize: 11, marginTop: 4 }}>Active</span>
+            )}
+          </button>
+
+          {/* Light Mode Option */}
+          <button
+            type="button"
+            onClick={() => {
+              setTheme('light');
+              toast.success('Light theme activated');
+            }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 10,
+              padding: '16px 14px',
+              borderRadius: 'var(--radius)',
+              border: `2px solid ${theme === 'light' ? 'var(--accent)' : 'var(--border)'}`,
+              background: theme === 'light' ? 'var(--accent-dim)' : 'var(--surface2)',
+              cursor: 'pointer',
+              color: 'var(--text)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <div style={{
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              background: '#ffffff',
+              border: '1px solid #d0d7de',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ea580c'
+            }}>
+              <Sun size={18} />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>Light Theme</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Crisp and clean for bright daylight</div>
+            </div>
+            {theme === 'light' && (
+              <span className="badge badge-orange" style={{ fontSize: 11, marginTop: 4 }}>Active</span>
+            )}
+          </button>
         </div>
       </div>
     </div>

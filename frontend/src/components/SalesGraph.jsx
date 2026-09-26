@@ -73,7 +73,10 @@ export default function SalesGraph({ isStandalone = false }) {
 
   // Statistics
   const total12MSales = salesData.reduce((acc, d) => acc + d.amount, 0);
-  const avgSales = salesData.length ? total12MSales / salesData.length : 0;
+  const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
+  const selectedYMKey = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+  const currentMonthEntry = salesData.find((d) => d.key === selectedYMKey) || salesData[salesData.length - 1];
+  const currentMonthSales = currentMonthEntry ? currentMonthEntry.amount : 0;
   const maxSaleItem = salesData.reduce(
     (max, d) => (d.amount > max.amount ? d : max),
     { amount: 0, fullLabel: 'N/A' }
@@ -244,12 +247,14 @@ export default function SalesGraph({ isStandalone = false }) {
           border: '1px solid var(--border)'
         }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Monthly Average
+            {isCurrentMonth ? "Current Month Sales" : "Selected Month Sales"}
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--blue)', marginTop: 4 }}>
-            {formatCurrency(avgSales)}
+            {formatCurrency(currentMonthSales)}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Average per month</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+            {isCurrentMonth ? "Sales for this month" : "Sales for selected month"}
+          </div>
         </div>
 
         <div style={{
@@ -288,7 +293,7 @@ export default function SalesGraph({ isStandalone = false }) {
       {/* SVG Linear Graph Container */}
       <div style={{
         position: 'relative',
-        background: '#0f141c',
+        background: 'var(--chart-bg)',
         borderRadius: 'var(--radius)',
         border: '1px solid var(--border)',
         padding: '20px 10px 10px 10px',
@@ -298,7 +303,7 @@ export default function SalesGraph({ isStandalone = false }) {
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: 'rgba(15, 20, 28, 0.7)',
+            background: 'var(--chart-overlay)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -319,12 +324,12 @@ export default function SalesGraph({ isStandalone = false }) {
             left: Math.min(Math.max(activePoint.x - 75, 10), svgWidth - 170),
             top: 20,
             pointerEvents: 'none',
-            background: 'rgba(22, 27, 34, 0.95)',
+            background: 'var(--chart-tooltip)',
             backdropFilter: 'blur(8px)',
             border: '1px solid var(--accent)',
             borderRadius: 8,
             padding: '8px 12px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            boxShadow: 'var(--shadow-md)',
             zIndex: 5,
             minWidth: 150
           }}>
@@ -381,7 +386,7 @@ export default function SalesGraph({ isStandalone = false }) {
                   y1={yPos}
                   x2={padLeft + chartWidth}
                   y2={yPos}
-                  stroke="#21262d"
+                  stroke="var(--chart-grid)"
                   strokeDasharray={val === 0 ? 'none' : '4 4'}
                   strokeWidth="1"
                 />
@@ -479,7 +484,7 @@ export default function SalesGraph({ isStandalone = false }) {
                   cy={pt.y}
                   r={isHovered ? 5.5 : isPeak ? 4.5 : 3.5}
                   fill={isPeak ? '#3fb950' : '#f97316'}
-                  stroke="#0f141c"
+                  stroke="var(--chart-bg)"
                   strokeWidth="2"
                   style={{ transition: 'all 0.15s ease' }}
                 />
