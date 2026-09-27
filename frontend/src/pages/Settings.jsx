@@ -75,10 +75,16 @@ export default function Settings() {
             mode: 'read',
           });
           if (dirHandle && dirHandle.name) {
-            const driveMatch = invoicePath.match(/^([a-zA-Z]:[/\\]?)/);
-            const drive = driveMatch ? driveMatch[1].replace('\\', '/') : 'C:/';
-            const cleanDrive = drive.endsWith('/') ? drive : drive + '/';
-            const newPath = `${cleanDrive}${dirHandle.name}`;
+            let basePrefix = '';
+            if (invoicePath.startsWith('/')) {
+              const lastSlash = invoicePath.lastIndexOf('/');
+              basePrefix = lastSlash > 0 ? invoicePath.substring(0, lastSlash + 1) : '/';
+            } else {
+              const driveMatch = invoicePath.match(/^([a-zA-Z]:[/\\]?)/);
+              const drive = driveMatch ? driveMatch[1].replace('\\', '/') : 'C:/';
+              basePrefix = drive.endsWith('/') ? drive : drive + '/';
+            }
+            const newPath = `${basePrefix}${dirHandle.name}`;
             setInvoicePath(newPath);
             toast.success(`Selected folder: ${dirHandle.name}`);
           }
@@ -100,10 +106,16 @@ export default function Settings() {
     if (files && files.length > 0) {
       const relPath = files[0].webkitRelativePath || '';
       const folderName = relPath.split('/')[0] || files[0].name;
-      const driveMatch = invoicePath.match(/^([a-zA-Z]:[/\\]?)/);
-      const drive = driveMatch ? driveMatch[1].replace('\\', '/') : 'C:/';
-      const cleanDrive = drive.endsWith('/') ? drive : drive + '/';
-      const newPath = `${cleanDrive}${folderName}`;
+      let basePrefix = '';
+      if (invoicePath.startsWith('/')) {
+        const lastSlash = invoicePath.lastIndexOf('/');
+        basePrefix = lastSlash > 0 ? invoicePath.substring(0, lastSlash + 1) : '/';
+      } else {
+        const driveMatch = invoicePath.match(/^([a-zA-Z]:[/\\]?)/);
+        const drive = driveMatch ? driveMatch[1].replace('\\', '/') : 'C:/';
+        basePrefix = drive.endsWith('/') ? drive : drive + '/';
+      }
+      const newPath = `${basePrefix}${folderName}`;
       setInvoicePath(newPath);
       toast.success(`Selected folder: ${folderName}`);
     }
@@ -242,7 +254,7 @@ export default function Settings() {
             <input
               value={invoicePath}
               onChange={e => setInvoicePath(e.target.value)}
-              placeholder={loadingPath ? "Loading active path..." : "e.g. C:/Invoices or D:/Invoices"}
+              placeholder={loadingPath ? "Loading active path..." : "e.g. C:/Users/user/Invoices or /Users/user/Invoices"}
               style={{ flex: 1 }}
             />
             <button
