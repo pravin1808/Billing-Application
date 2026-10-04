@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../api';
-import { Plus, Pencil, Trash2, Package, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, ChevronLeft, ChevronRight, Search, X, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 
 const empty = { description: '', size: '', gst: 18, hsnNumber: 0, quantity: 0 };
 
@@ -21,6 +21,12 @@ export default function Products() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [gstRates, setGstRates] = useState([18, 28]);
+
+  // Quick Stock Adjustment & Confirmation states for Edit Product
+  const [originalStock, setOriginalStock] = useState(0);
+  const [addStock, setAddStock] = useState('');
+  const [reduceStock, setReduceStock] = useState('');
+  const [showConfirmStep, setShowConfirmStep] = useState(false);
 
   useEffect(() => {
     api.getGstRates()
@@ -89,26 +95,85 @@ export default function Products() {
     setPage(0);
   };
 
-  const openAdd = () => { setForm(empty); setEditId(null); setModal('add'); };
+  const openAdd = () => {
+    setForm(empty);
+    setOriginalStock(0);
+    setAddStock('');
+    setReduceStock('');
+    setShowConfirmStep(false);
+    setEditId(null);
+    setModal('add');
+  };
+
   const openEdit = (p) => {
+    const qty = Number(p.quantity) || 0;
     setForm({
       description: p.description,
       size: p.size,
       gst: p.gst,
       hsnNumber: p.hsnNumber,
-      quantity: p.quantity
+      quantity: qty
     });
+    setOriginalStock(qty);
+    setAddStock('');
+    setReduceStock('');
+    setShowConfirmStep(false);
     setEditId(p.productId);
     setModal('edit');
   };
-  const close = () => setModal(null);
+
+  const close = () => {
+    setModal(null);
+    setShowConfirmStep(false);
+    setAddStock('');
+    setReduceStock('');
+  };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const save = async () => {
+  const handleStockAddChange = (e) => {
+    const val = e.target.value;
+    setAddStock(val);
+    const addNum = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
+    const reduceNum = reduceStock === '' ? 0 : Math.max(0, parseInt(reduceStock, 10) || 0);
+    const newQty = Math.max(0, originalStock + addNum - reduceNum);
+    set('quantity', newQty);
+  };
+
+  const handleStockReduceChange = (e) => {
+    const val = e.target.value;
+    setReduceStock(val);
+    const reduceNum = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
+    const addNum = addStock === '' ? 0 : Math.max(0, parseInt(addStock, 10) || 0);
+    const newQty = Math.max(0, originalStock + addNum - reduceNum);
+    set('quantity', newQty);
+  };
+
+  const handleDirectQuantityChange = (e) => {
+    const val = e.target.value;
+    set('quantity', val);
+    setAddStock('');
+    setReduceStock('');
+  };
+
+  const stockDiff = (Number(form.quantity) || 0) - originalStock;
+
+  const handleInitiateSave = () => {
     if (!form.description.trim() || !form.size.trim()) {
       return toast.error('Description and Size are required');
     }
+    if (form.quantity === '' || isNaN(form.quantity) || +form.quantity < 0) {
+      return toast.error('Stock quantity must be a non-negative number');
+    }
+
+    if (modal === 'edit') {
+      setShowConfirmStep(true);
+    } else {
+      executeSave();
+    }
+  };
+
+  const executeSave = async () => {
     setSaving(true);
     try {
       if (modal === 'add') {
@@ -360,60 +425,199 @@ export default function Products() {
       {modal && (
         <div className="modal-backdrop" onClick={close}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{modal === 'add' ? 'Add Product' : 'Edit Product'}</h2>
-              <button className="btn btn-ghost btn-sm" onClick={close}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group full">
-                  <label>Description</label>
-                  <input
-                    value={form.description}
-                    onChange={e => set('description', e.target.value)}
-                    placeholder="e.g. CEAT Milaze X3"
-                  />
+            {modal === 'edit' && showConfirmStep ? (
+              <>
+                <div className="modal-header">
+                  <h2>Confirm Stock Update</h2>
+                  <button className="btn btn-ghost btn-sm" onClick={close}>✕</button>
                 </div>
-                <div className="form-group">
-                  <label>Size</label>
-                  <input
-                    value={form.size}
-                    onChange={e => set('size', e.target.value)}
-                    placeholder="e.g. 185/65 R15"
-                  />
+                <div className="modal-body">
+                  <div className="confirm-product-header">
+                    <div className="confirm-product-title">{form.description}</div>
+                    <div className="confirm-product-meta">
+                      <span>Size: <strong>{form.size}</strong></span>
+                      <span>•</span>
+                      <span>HSN: <strong>{form.hsnNumber}</strong></span>
+                      <span>•</span>
+                      <span>GST: <strong>{form.gst}%</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="confirm-flow-card">
+                    <div className="confirm-stat-col">
+                      <span className="confirm-stat-label">Initial Stock</span>
+                      <span className="confirm-stat-value">{originalStock} <small>units</small></span>
+                    </div>
+
+                    <div className="confirm-arrow-col">
+                      <div className={`confirm-badge ${stockDiff > 0 ? 'increase' : stockDiff < 0 ? 'decrease' : 'neutral'}`}>
+                        {stockDiff > 0 && <><TrendingUp size={14} /> +{stockDiff} Increased</>}
+                        {stockDiff < 0 && <><TrendingDown size={14} /> {stockDiff} Decreased</>}
+                        {stockDiff === 0 && <>Unchanged</>}
+                      </div>
+                      <ArrowRight size={20} className="confirm-flow-arrow" />
+                    </div>
+
+                    <div className="confirm-stat-col">
+                      <span className="confirm-stat-label">Updated Stock</span>
+                      <span className="confirm-stat-value updated">{form.quantity} <small>units</small></span>
+                    </div>
+                  </div>
+
+                  <div className="confirm-note">
+                    {stockDiff > 0 && (
+                      <span>Stock will be <strong>increased by {stockDiff} units</strong> from <strong>{originalStock}</strong> to <strong>{form.quantity} units</strong>.</span>
+                    )}
+                    {stockDiff < 0 && (
+                      <span>Stock will be <strong>reduced by {Math.abs(stockDiff)} units</strong> from <strong>{originalStock}</strong> to <strong>{form.quantity} units</strong>.</span>
+                    )}
+                    {stockDiff === 0 && (
+                      <span>Stock quantity will remain unchanged at <strong>{originalStock} units</strong>.</span>
+                    )}
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>GST %</label>
-                  <select value={form.gst} onChange={e => set('gst', Number(e.target.value))}>
-                    {Array.from(new Set([...gstRates, Number(form.gst) || 18])).sort((a, b) => a - b).map(r => (
-                      <option key={r} value={r}>{r}%</option>
-                    ))}
-                  </select>
+                <div className="modal-footer">
+                  <button className="btn btn-ghost" onClick={() => setShowConfirmStep(false)} disabled={saving}>
+                    Back
+                  </button>
+                  <button className="btn btn-primary" onClick={executeSave} disabled={saving || Number(form.quantity) < 0}>
+                    {saving ? 'Updating…' : 'Proceed'}
+                  </button>
                 </div>
-                <div className="form-group">
-                  <label>HSN Number</label>
-                  <input
-                    type="number"
-                    value={form.hsnNumber}
-                    onChange={e => set('hsnNumber', e.target.value)}
-                  />
+              </>
+            ) : (
+              <>
+                <div className="modal-header">
+                  <h2>{modal === 'add' ? 'Add Product' : 'Edit Product'}</h2>
+                  <button className="btn btn-ghost btn-sm" onClick={close}>✕</button>
                 </div>
-                <div className="form-group">
-                  <label>Quantity</label>
-                  <input
-                    type="number"
-                    value={form.quantity}
-                    onChange={e => set('quantity', e.target.value)}
-                  />
+                <div className="modal-body">
+                  <div className="form-grid">
+                    <div className="form-group full">
+                      <label>Description</label>
+                      <input
+                        value={form.description}
+                        onChange={e => set('description', e.target.value)}
+                        placeholder="e.g. CEAT Milaze X3"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Size</label>
+                      <input
+                        value={form.size}
+                        onChange={e => set('size', e.target.value)}
+                        placeholder="e.g. 185/65 R15"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>GST %</label>
+                      <select value={form.gst} onChange={e => set('gst', Number(e.target.value))}>
+                        {Array.from(new Set([...gstRates, Number(form.gst) || 18])).sort((a, b) => a - b).map(r => (
+                          <option key={r} value={r}>{r}%</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>HSN Number</label>
+                      <input
+                        type="number"
+                        value={form.hsnNumber}
+                        onChange={e => set('hsnNumber', e.target.value)}
+                      />
+                    </div>
+
+                    {modal === 'add' ? (
+                      <div className="form-group">
+                        <label>Quantity</label>
+                        <input
+                          type="number"
+                          value={form.quantity}
+                          onChange={e => set('quantity', e.target.value)}
+                        />
+                      </div>
+                    ) : (
+                      <div className="stock-adjust-box">
+                        <div className="stock-adjust-header">
+                          <span className="stock-adjust-title">
+                            <Package size={15} /> Quick Stock Adjustment
+                          </span>
+                          <span className="stock-current-badge">
+                            Current Stock: <strong>{originalStock} units</strong>
+                          </span>
+                        </div>
+
+                        <div className="stock-adjust-grid">
+                          <div className="form-group">
+                            <label className="stock-label-add">
+                              <Plus size={13} /> Add Stock (+)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={addStock}
+                              onChange={handleStockAddChange}
+                              placeholder="Enter units to add"
+                              className="stock-input-add"
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="stock-label-reduce">
+                              <span style={{ fontSize: 14, fontWeight: 'bold' }}>−</span> Reduce Stock (−)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={reduceStock}
+                              onChange={handleStockReduceChange}
+                              placeholder="Enter units to reduce"
+                              className="stock-input-reduce"
+                            />
+                          </div>
+                        </div>
+
+                        <div className={`stock-live-banner ${stockDiff > 0 ? 'increase' : stockDiff < 0 ? 'decrease' : 'neutral'}`}>
+                          {stockDiff > 0 && (
+                            <>
+                              <TrendingUp size={15} />
+                              <span>Stock will <strong>increase</strong> by <strong>+{stockDiff} units</strong>: {originalStock} → <strong>{form.quantity} units</strong></span>
+                            </>
+                          )}
+                          {stockDiff < 0 && (
+                            <>
+                              <TrendingDown size={15} />
+                              <span>Stock will <strong>decrease</strong> by <strong>{stockDiff} units</strong>: {originalStock} → <strong>{form.quantity} units</strong></span>
+                            </>
+                          )}
+                          {stockDiff === 0 && (
+                            <span>Stock quantity unchanged at <strong>{originalStock} units</strong></span>
+                          )}
+                        </div>
+
+                        <div className="form-group" style={{ marginTop: 4 }}>
+                          <label style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Final Quantity (Total Stock)</span>
+                            <span style={{ fontSize: 11, color: 'var(--muted)' }}>Direct edit also allowed</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={form.quantity}
+                            onChange={handleDirectQuantityChange}
+                            style={{ fontWeight: 600 }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
+                <div className="modal-footer">
+                  <button className="btn btn-ghost" onClick={close}>Cancel</button>
+                  <button className="btn btn-primary" onClick={handleInitiateSave} disabled={saving}>
+                    {modal === 'edit' ? 'Review & Save' : 'Save'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

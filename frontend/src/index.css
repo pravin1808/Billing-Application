@@ -781,3 +781,227 @@ input[type="number"] {
   transform: scale(1.1);
 }
 
+/* ── Quick Stock Adjustment (Edit Product Modal) ── */
+.stock-adjust-box {
+  grid-column: 1 / -1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.stock-adjust-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stock-adjust-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stock-current-badge {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.stock-current-badge strong {
+  color: var(--text);
+}
+
+.stock-adjust-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.stock-label-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--green);
+  font-weight: 600;
+}
+
+.stock-input-add:focus {
+  border-color: var(--green) !important;
+  box-shadow: 0 0 0 1px var(--green);
+}
+
+.stock-label-reduce {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--red);
+  font-weight: 600;
+}
+
+.stock-input-reduce:focus {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 1px var(--red);
+}
+
+.stock-live-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.stock-live-banner.increase {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(63, 185, 80, 0.25);
+}
+
+.stock-live-banner.decrease {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid rgba(248, 81, 73, 0.25);
+}
+
+.stock-live-banner.neutral {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* ── Stock Confirmation Step ── */
+.confirm-product-header {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.confirm-product-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.confirm-product-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.confirm-flow-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.confirm-stat-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.confirm-stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.confirm-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.confirm-stat-value small {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.confirm-stat-value.updated {
+  color: var(--accent);
+}
+
+.confirm-arrow-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.confirm-badge.increase {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.confirm-badge.decrease {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+}
+
+.confirm-badge.neutral {
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.confirm-flow-arrow {
+  color: var(--muted);
+}
+
+.confirm-note {
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.5;
+  background: var(--accent-dim);
+  border: 1px solid rgba(234, 88, 12, 0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.confirm-note strong {
+  color: var(--accent);
+}
+
