@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
-import { LayoutDashboard, Package, ShoppingCart, TrendingUp, Settings } from 'lucide-react';
+import toast, { Toaster, ToastBar } from 'react-hot-toast';
+import { LayoutDashboard, Package, ShoppingCart, TrendingUp, Settings, X } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
@@ -84,16 +84,85 @@ export default function App() {
       <BrowserRouter>
         <Toaster
           position="top-right"
+          gutter={10}
+          containerStyle={{
+            top: 24,
+            right: 24,
+          }}
           toastOptions={{
+            className: 'app-toast',
             style: {
-              background: 'var(--surface2)',
+              background: 'var(--surface)',
               color: 'var(--text)',
               border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-md)',
+              boxShadow: 'var(--shadow-lg)',
+              padding: '12px 14px 12px 16px',
+              fontSize: '13.5px',
+              fontWeight: 500,
+              lineHeight: 1.55,
+              maxWidth: '520px',
+              borderRadius: 'var(--radius)',
+              letterSpacing: '0.01em',
             },
-            duration: 3000,
+            duration: 3500,
+            success: {
+              duration: 3500,
+              iconTheme: {
+                primary: 'var(--green)',
+                secondary: '#ffffff',
+              },
+              style: {
+                borderLeft: '4px solid var(--green)',
+              },
+            },
+            error: {
+              duration: 6500,
+              iconTheme: {
+                primary: 'var(--red)',
+                secondary: '#ffffff',
+              },
+              style: {
+                borderLeft: '4px solid var(--red)',
+              },
+            },
           }}
-        />
+        >
+          {(t) => (
+            <ToastBar toast={t}>
+              {({ icon, message }) => (
+                <>
+                  <div
+                    className="toast-icon-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toast.dismiss(t.id);
+                    }}
+                    title="Dismiss notification"
+                    role="button"
+                    tabIndex={0}
+                  >
+                    {icon}
+                  </div>
+                  <div className="toast-text-content">{message}</div>
+                  {t.type !== 'loading' && (
+                    <button
+                      type="button"
+                      className="toast-dismiss-cross-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toast.dismiss(t.id);
+                      }}
+                      title="Close notification"
+                      aria-label="Close notification"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </>
+              )}
+            </ToastBar>
+          )}
+        </Toaster>
         <Shell />
       </BrowserRouter>
     </ThemeProvider>
